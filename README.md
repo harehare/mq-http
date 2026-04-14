@@ -1,4 +1,4 @@
-# mq-http
+<h1 align="center">mq-http</h1>
 
 A lightweight HTTP server that executes [mq](https://mqlang.org/) scripts for each request.
 
@@ -177,3 +177,9 @@ cargo build --features watch
 |----------|-------------|
 | `MQ_HTTP_PORT` | Override `--port` |
 | `MQ_HTTP_ADDR` | Override `--addr` |
+
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
