@@ -1,0 +1,36 @@
+# examples/api.mq — REST API with routing
+#
+# Run:
+#   mq-http examples/api.mq
+#
+# Test:
+#   curl http://localhost:3000/
+#   curl http://localhost:3000/health
+#   curl -X POST http://localhost:3000/echo -d '{"msg":"hi"}' -H 'Content-Type: application/json'
+#   curl http://localhost:3000/greet?name=Alice
+#
+# The http module is built into mq-http and always available as http::*
+
+def handle_root(_):
+  http::html_ok("<h1>mq-http API</h1><p>Try GET /health or POST /echo</p>")
+end
+
+def handle_health(_):
+  http::json_ok({"status": "ok"})
+end
+
+def handle_echo(r):
+  http::json_ok(r["body"])
+end
+
+def handle_greet(r):
+  let name = http::query_param(r, "name", "world")
+  | http::json_ok({"message": "Hello, " + name + "!"})
+end
+
+http::dispatch(req, [
+  fn(r): http::get_route(r,  "/",       fn(r): handle_root(r););,
+  fn(r): http::post_route(r, "/echo",   fn(r): handle_echo(r););,
+  fn(r): http::get_route(r,  "/health", fn(r): handle_health(r););,
+  fn(r): http::get_route(r,  "/greet",  fn(r): handle_greet(r););,
+])

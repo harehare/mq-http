@@ -3,6 +3,11 @@ use miette::{IntoDiagnostic, Result};
 use mq_lang::DefaultEngine;
 use std::path::PathBuf;
 
+/// `lib/http.mq` is embedded in the binary at compile time.
+/// It is injected as `module http: ... end` at the top of every executed script,
+/// making its functions available via `http::function_name(...)`.
+pub const HTTP_MODULE: &str = include_str!("../lib/http.mq");
+
 /// Create a new engine for each request.
 /// The engine is fully isolated so concurrent requests never share state.
 pub fn create_engine(args: &Args) -> DefaultEngine {
@@ -39,4 +44,3 @@ pub fn load_raw_files(engine: &DefaultEngine, args: &Args) -> Result<()> {
     }
     Ok(())
 }
-

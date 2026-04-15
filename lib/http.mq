@@ -1,0 +1,158 @@
+# mq-http standard library
+# HTTP response builders, request helpers, and router utilities
+#
+# Usage:
+#   mq-http my_handler.mq -L ./lib
+#   Then in my_handler.mq: include "http"
+
+# ---------------------------------------------------------------------------
+# Response builders
+# ---------------------------------------------------------------------------
+
+def ok(body):
+  {"status": 200, "body": body}
+end
+
+def created(body):
+  {"status": 201, "body": body}
+end
+
+def no_content():
+  {"status": 204, "body": ""}
+end
+
+def bad_request(msg):
+  {"status": 400, "body": msg}
+end
+
+def not_found():
+  {"status": 404, "body": "Not Found"}
+end
+
+def method_not_allowed():
+  {"status": 405, "body": "Method Not Allowed"}
+end
+
+def internal_error(msg):
+  {"status": 500, "body": msg}
+end
+
+# ---------------------------------------------------------------------------
+# JSON response builders
+# ---------------------------------------------------------------------------
+
+def json_response(status, body):
+  {"status": status, "headers": {"content-type": "application/json"}, "body": body}
+end
+
+def json_ok(body):
+  json_response(200, body)
+end
+
+def json_created(body):
+  json_response(201, body)
+end
+
+def json_error(status, msg):
+  json_response(status, {"error": msg})
+end
+
+# ---------------------------------------------------------------------------
+# HTML response builder
+# ---------------------------------------------------------------------------
+
+def html_ok(body):
+  {"status": 200, "headers": {"content-type": "text/html; charset=utf-8"}, "body": body}
+end
+
+# ---------------------------------------------------------------------------
+# Request helpers
+# ---------------------------------------------------------------------------
+
+# Get a query parameter; returns default if absent
+def query_param(r, name, default):
+  let val = get(r["query"], name)
+  | if (is_none(val)): default else: val
+end
+
+# Get a request header by lowercase name
+def req_header(r, name):
+  get(r["headers"], name)
+end
+
+# Method predicates
+def is_get(r):    r["method"] == "GET";
+def is_post(r):   r["method"] == "POST";
+def is_put(r):    r["method"] == "PUT";
+def is_patch(r):  r["method"] == "PATCH";
+def is_delete(r): r["method"] == "DELETE";
+
+# ---------------------------------------------------------------------------
+# Path helpers
+# ---------------------------------------------------------------------------
+
+# Exact path match
+def path_eq(r, p):
+  r["path"] == p
+end
+
+# Prefix match
+def path_prefix(r, prefix):
+  starts_with(r["path"], prefix)
+end
+
+# Split path into segments: "/a/b/c" -> ["a", "b", "c"]
+def path_segments(r):
+  filter(split(r["path"], "/"), fn(s): !is_empty(s);)
+end
+
+# ---------------------------------------------------------------------------
+# Route matchers
+# ---------------------------------------------------------------------------
+
+# Match method + exact path; return handler(r) or None
+def route(r, method, path, handler):
+  if (r["method"] == method && r["path"] == path):
+    handler(r)
+  else:
+    None
+end
+
+# Match method + path prefix; return handler(r) or None
+def route_prefix(r, method, prefix, handler):
+  if (r["method"] == method && starts_with(r["path"], prefix)):
+    handler(r)
+  else:
+    None
+end
+
+# Shorthand per-method helpers
+def get_route(r, path, handler):    route(r, "GET",    path, handler);
+def post_route(r, path, handler):   route(r, "POST",   path, handler);
+def put_route(r, path, handler):    route(r, "PUT",    path, handler);
+def patch_route(r, path, handler):  route(r, "PATCH",  path, handler);
+def delete_route(r, path, handler): route(r, "DELETE", path, handler);
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+# Try each handler in order; return the first non-None result.
+# Falls back to not_found() when no route matches.
+#
+# Example:
+#   dispatch(req, [
+#     fn(r): get_route(r,  "/",      fn(_): ok("hello"););,
+#     fn(r): post_route(r, "/echo",  fn(r): ok(r["body"]););,
+#   ])
+def dispatch(r, handlers):
+  do
+    var result = None
+    | var i = 0
+    | while (i < len(handlers) && is_none(result)):
+        result = get(handlers, i)(r)
+        | i += 1
+      end
+    | if (is_none(result)): not_found() else: result
+  end
+end

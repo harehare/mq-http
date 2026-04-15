@@ -40,4 +40,24 @@ pub struct Args {
     /// Automatically reload the script when it changes
     #[arg(short, long)]
     pub reload: bool,
+
+    /// OpenTelemetry OTLP endpoint (e.g., http://localhost:4318)
+    #[arg(long, env = "OTEL_EXPORTER_OTLP_ENDPOINT")]
+    pub otel_endpoint: Option<String>,
+
+    /// OpenTelemetry service name
+    #[arg(long, default_value = "mq-http", env = "OTEL_SERVICE_NAME")]
+    pub otel_service_name: String,
+
+    /// Path to TLS certificate file (PEM)
+    #[arg(long)]
+    pub tls_cert: Option<PathBuf>,
+
+    /// Path to TLS private key file (PEM)
+    #[arg(long)]
+    pub tls_key: Option<PathBuf>,
+
+    /// Read the mq script from stdin
+    #[arg(long)]
+    pub stdin: bool,
 }
