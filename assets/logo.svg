@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2B5773"/>
+      <stop offset="100%" style="stop-color:#61AFEF"/>
+    </linearGradient>
+  </defs>
+  <!-- < bracket (HTTP open tag) -->
+  <path d="M23 20 L9 50 L23 80" fill="none" stroke="url(#grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- M letter (mq symbol) -->
+  <path d="M32 72 L32 28 L50 55 L68 28 L68 72" fill="none" stroke="url(#grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- > bracket (HTTP close tag) -->
+  <path d="M77 20 L91 50 L77 80" fill="none" stroke="url(#grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

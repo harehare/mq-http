@@ -1310,6 +1310,7 @@ dependencies = [
  "axum",
  "axum-server",
  "clap",
+ "futures-util",
  "miette",
  "mq-lang",
  "mq-markdown",
