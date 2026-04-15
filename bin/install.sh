@@ -5,8 +5,7 @@ set -e
 # mq-http installation script
 
 readonly MQH_REPO="harehare/mq-http"
-readonly MQH_INSTALL_DIR="$HOME/.mq"
-readonly MQH_BIN_DIR="$MQH_INSTALL_DIR/bin"
+readonly MQH_BIN_DIR="$HOME/.local/bin"
 
 # Colors for output
 readonly RED='\033[0;31m'

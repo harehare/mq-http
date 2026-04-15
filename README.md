@@ -7,8 +7,38 @@ A lightweight HTTP server that executes [mq](https://mqlang.org/) scripts for ea
 
 ## Installation
 
+### Using the Installation Script (Recommended)
+
 ```bash
+curl -fsSL https://raw.githubusercontent.com/harehare/mq-http/main/bin/install.sh | bash
+```
+
+The installer will:
+- Download the latest release for your platform
+- Verify the binary with SHA256 checksum
+- Install to `~/.local/bin/`
+- Update your shell profile (bash, zsh, or fish)
+
+After installation, restart your terminal or run:
+
+```bash
+source ~/.bashrc  # or ~/.zshrc, or ~/.config/fish/config.fish
+```
+
+### Cargo
+
+```bash
+# Install from crates.io
 cargo install mq-http
+```
+
+### From Source
+
+```bash
+git clone https://github.com/harehare/mq-http.git
+cd mq-http
+cargo build --release
+# Binary will be at target/release/mq-http
 ```
 
 ## Usage
