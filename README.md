@@ -15,18 +15,24 @@ cargo install mq-http
 mq-http script.mq
 
 # Run with an inline script
-mq-http -c '"# Hello World"'
+mq-http -c 'http::json_ok({"hello": "world"})'
+
+# Pipe a script from stdin
+echo 'http::ok("hello")' | mq-http
+
+# Read from stdin explicitly
+mq-http --stdin < script.mq
 
 # Run on a custom address and port
 mq-http -a 0.0.0.0 -p 8080 script.mq
 
-# Hot-reload on file change (requires --features watch)
+# Hot-reload on file change
 mq-http --reload script.mq
 ```
 
 ## Request Object
 
-Every request exposes a `req` variable with the following fields:
+Every script has access to a `req` variable with the following fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -41,48 +47,92 @@ Every request exposes a `req` variable with the following fields:
 | `cookies` | dict | Parsed cookies |
 | `body` | string / dict | Body — parsed automatically for JSON, form, YAML, TOML |
 
-Dict fields are accessed with `get(dict, "key")`.
+## Built-in `http` Module
+
+The `http` module is embedded in the binary and available in every script as `http::*` — no imports needed.
+
+### Response builders
+
+| Function | Status | Description |
+|----------|--------|-------------|
+| `http::ok(body)` | 200 | Plain response |
+| `http::created(body)` | 201 | |
+| `http::no_content()` | 204 | |
+| `http::bad_request(msg)` | 400 | |
+| `http::not_found()` | 404 | |
+| `http::method_not_allowed()` | 405 | |
+| `http::internal_error(msg)` | 500 | |
+| `http::json_ok(body)` | 200 | `application/json` |
+| `http::json_created(body)` | 201 | `application/json` |
+| `http::json_error(status, msg)` | — | `{"error": msg}` |
+| `http::html_ok(body)` | 200 | `text/html` |
+| `http::json_response(status, body)` | — | `application/json` with custom status |
+
+### Request helpers
+
+| Function | Description |
+|----------|-------------|
+| `http::query_param(req, name, default)` | Get a query parameter with fallback |
+| `http::req_header(req, name)` | Get a request header by lowercase name |
+| `http::is_get(req)` / `http::is_post(req)` / … | Method predicates |
+
+### Router
+
+| Function | Description |
+|----------|-------------|
+| `http::route(req, method, path, handler)` | Match method + exact path |
+| `http::route_prefix(req, method, prefix, handler)` | Match method + path prefix |
+| `http::get_route(req, path, handler)` | Shorthand for `GET` |
+| `http::post_route(req, path, handler)` | Shorthand for `POST` |
+| `http::put_route(req, path, handler)` | Shorthand for `PUT` |
+| `http::patch_route(req, path, handler)` | Shorthand for `PATCH` |
+| `http::delete_route(req, path, handler)` | Shorthand for `DELETE` |
+| `http::dispatch(req, handlers)` | Try handlers in order; falls back to 404 |
+| `http::path_eq(req, path)` | Exact path match predicate |
+| `http::path_prefix(req, prefix)` | Prefix match predicate |
+| `http::path_segments(req)` | Split path into `["a", "b", "c"]` |
 
 ## Script Examples
 
-### Simple string response
+### Simple response
 
 ```mq
-"# Hello from mq-http"
+http::ok("Hello from mq-http!")
 ```
 
-### Path-based routing
+### JSON response
 
 ```mq
-let path = get(req, "path")
-| if (path == "/"):
-    "# Welcome"
-  elif (path == "/health"):
-    {"status": 200, "body": "OK"}
-  else:
-    {"status": 404, "body": "Not Found"}
-  end
+http::json_ok({"name": "mq-http", "version": "0.1.0"})
 ```
 
 ### Reading query parameters
 
 ```mq
-let name = get(get(req, "query"), "name")
-| "Hello, " + name + "!"
+let name = http::query_param(req, "name", "world")
+| http::json_ok({"message": "Hello, " + name + "!"})
 ```
 
-### Reading a JSON request body
+### Path-based routing with `dispatch`
 
 ```mq
-let body = get(req, "body")
-| let name = get(body, "name")
-| "Hello, " + name
-```
+def handle_root(_):
+  http::html_ok("<h1>Welcome</h1>")
+end
 
-### Returning JSON
+def handle_health(_):
+  http::json_ok({"status": "ok"})
+end
 
-```mq
-{"name": "mq-http", "version": "0.1.0"}
+def handle_echo(r):
+  http::json_ok(r["body"])
+end
+
+http::dispatch(req, [
+  fn(r): http::get_route(r,  "/",       fn(r): handle_root(r););,
+  fn(r): http::get_route(r,  "/health", fn(r): handle_health(r););,
+  fn(r): http::post_route(r, "/echo",   fn(r): handle_echo(r););,
+])
 ```
 
 ### Full response control
@@ -102,10 +152,23 @@ Return a dict with `status`, `headers`, `cookies`, and/or `body`:
 If the script evaluates to a function, it is called with `req`:
 
 ```mq
-def(r):
-  let path = get(r, "path")
-  | "You requested: " + path
+fn(r):
+  http::json_ok({"path": r["path"], "method": r["method"]})
 end
+```
+
+### stdin — quick one-liners
+
+```bash
+# Pipe a script directly
+echo 'http::json_ok({"path": req["path"]})' | mq-http
+
+# Heredoc
+mq-http <<'EOF'
+http::dispatch(req, [
+  fn(r): http::get_route(r, "/", fn(_): http::ok("hi"););,
+])
+EOF
 ```
 
 ## Output Format (`-F`)
@@ -114,20 +177,12 @@ Controls how the script's return value is serialised into the HTTP response.
 
 | Flag | `string` response | `Markdown` response |
 |------|-------------------|---------------------|
-| `markdown` *(default)* | `text/markdown` — raw Markdown | `text/markdown` — raw Markdown |
-| `html` | `text/html` — string as-is | `text/html` — rendered to HTML |
-| `text` | `text/plain` | `text/plain` — raw Markdown text |
+| `markdown` *(default)* | `text/markdown` | `text/markdown` |
+| `html` | `text/html` | `text/html` — rendered to HTML |
+| `text` | `text/plain` | `text/plain` |
 | `json` | `application/json` | — |
 
 `dict` and `array` values are always returned as `application/json` regardless of `-F`.
-
-```bash
-# Return raw Markdown (default)
-mq-http script.mq
-
-# Render Markdown to HTML
-mq-http -F html script.mq
-```
 
 ## Body Parsing
 
@@ -150,25 +205,19 @@ Arguments:
   [SCRIPT]  Path to the mq script
 
 Options:
-  -c <COMMAND>           Execute mq script from string
-  -p, --port <PORT>      Port to listen on [default: 3000]
-  -a, --addr <ADDR>      Bind address [default: 127.0.0.1]
-  -F, --format <FORMAT>  Default output format (markdown, html, text, json) [default: markdown]
-  -L, --directory <DIR>  Search modules from the directory
-      --args <NAME> <VALUE>     Set a named string value
-      --rawfile <NAME> <FILE>   Set a named value from file contents
-  -r, --reload           Hot-reload script on file change (requires --features watch)
-  -h, --help             Print help
-```
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| `watch` | Enable `--reload` hot-reload via file watching (`notify` crate) |
-
-```bash
-cargo build --features watch
+  -c <COMMAND>              Execute mq script from string
+      --stdin               Read the mq script from stdin
+  -p, --port <PORT>         Port to listen on [default: 3000]
+  -a, --addr <ADDR>         Bind address [default: 127.0.0.1]
+  -F, --format <FORMAT>     Default output format (markdown, html, text, json) [default: markdown]
+  -L, --directory <DIR>     Search modules from the directory
+      --args <NAME> <VALUE> Set a named string value
+      --rawfile <NAME> <FILE> Set a named value from file contents
+  -r, --reload              Hot-reload script on file change
+      --tls-cert <FILE>     Path to TLS certificate file (PEM)
+      --tls-key <FILE>      Path to TLS private key file (PEM)
+      --otel-endpoint <URL> OpenTelemetry OTLP endpoint
+  -h, --help                Print help
 ```
 
 ## Environment Variables
@@ -177,9 +226,9 @@ cargo build --features watch
 |----------|-------------|
 | `MQ_HTTP_PORT` | Override `--port` |
 | `MQ_HTTP_ADDR` | Override `--addr` |
-
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Override `--otel-endpoint` |
+| `OTEL_SERVICE_NAME` | Override `--otel-service-name` |
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-

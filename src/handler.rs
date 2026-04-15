@@ -1,4 +1,4 @@
-use crate::engine::{create_engine, load_raw_files};
+use crate::engine::{HTTP_MODULE, create_engine, load_raw_files};
 use crate::request::build_request_value;
 use crate::response::runtime_value_to_response;
 use crate::state::AppState;
@@ -50,8 +50,12 @@ fn run_script(state: &AppState, user_script: &str, req_value: RuntimeValue) -> R
         tracing::error!("Failed to load raw files: {:?}", e);
     }
 
+    // Prepend the built-in http module so users can call http::ok(), http::json_ok(), etc.
     // `let req = .` makes the request available as a named variable in scripts.
-    let full_script = format!("let req = . | {}", user_script);
+    let full_script = format!(
+        "module http:\n{}\nend\n| let req = . | {}",
+        HTTP_MODULE, user_script
+    );
 
     match engine.eval(&full_script, std::iter::once(req_value.clone())) {
         Ok(values) => {
@@ -87,7 +91,10 @@ fn call_function_handler(state: &AppState, user_script: &str, req_value: Runtime
     }
 
     // Wrap script in parens and invoke it with req.
-    let call_code = format!("let req = . | let _h = ({}) | _h(req)", user_script);
+    let call_code = format!(
+        "module http:\n{}\nend\n| let req = . | let _h = ({}) | _h(req)",
+        HTTP_MODULE, user_script
+    );
 
     match engine.eval(&call_code, std::iter::once(req_value)) {
         Ok(values) => {

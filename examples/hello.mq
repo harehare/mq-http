@@ -1,0 +1,9 @@
+# examples/hello.mq — minimal hello world
+#
+# Run:
+#   mq-http examples/hello.mq
+#
+# Test:
+#   curl http://localhost:3000/
+
+"Hello, mq-http!"

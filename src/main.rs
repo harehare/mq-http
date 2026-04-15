@@ -12,7 +12,6 @@ use axum::{Router, routing::any};
 use clap::Parser;
 use miette::{IntoDiagnostic, Result};
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
@@ -20,14 +19,39 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args = Args::parse();
+
+    if args.tls_cert.is_some() != args.tls_key.is_some() {
+        return Err(miette::miette!(
+            "Both --tls-cert and --tls-key must be provided together"
+        ));
+    }
+
+    let (otel_layer, otel_provider) = if let Some(endpoint) = &args.otel_endpoint {
+        match init_tracer(endpoint, &args.otel_service_name) {
+            Ok(provider) => {
+                use opentelemetry::trace::TracerProvider as _;
+                let tracer = provider.tracer("mq-http");
+                let layer = tracing_opentelemetry::layer().with_tracer(tracer);
+                (Some(layer), Some(provider))
+            }
+            Err(e) => {
+                eprintln!("Failed to initialize OpenTelemetry tracer: {:?}", e);
+                (None, None)
+            }
+        }
+    } else {
+        (None, None)
+    };
+
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "mq_http=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
+        .with(otel_layer)
         .init();
 
-    let args = Args::parse();
     let port = std::env::var("MQ_HTTP_PORT")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -50,10 +74,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    if args.reload {
-        tracing::warn!("--reload requires `--features watch`");
-    }
-
     let app = Router::new()
         .route("/", any(handler))
         .route("/{*path}", any(handler))
@@ -62,21 +82,85 @@ async fn main() -> Result<()> {
         .with_state(state);
 
     let socket_addr: SocketAddr = format!("{}:{}", addr, port).parse().into_diagnostic()?;
-    tracing::info!("listening on {}", socket_addr);
 
-    let listener = tokio::net::TcpListener::bind(socket_addr)
-        .await
-        .into_diagnostic()?;
+    let result = serve(app, socket_addr, args.tls_cert.as_deref(), args.tls_key.as_deref()).await;
 
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .into_diagnostic()?;
+    if let Some(provider) = otel_provider {
+        if let Err(e) = provider.shutdown() {
+            tracing::warn!("Failed to shutdown OpenTelemetry provider: {:?}", e);
+        }
+    }
+
+    result
+}
+
+async fn serve(
+    app: Router,
+    socket_addr: SocketAddr,
+    tls_cert: Option<&std::path::Path>,
+    tls_key: Option<&std::path::Path>,
+) -> Result<()> {
+    if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
+            .await
+            .into_diagnostic()?;
+
+        let handle = axum_server::Handle::new();
+        tokio::spawn({
+            let handle = handle.clone();
+            async move {
+                shutdown_signal().await;
+                handle.graceful_shutdown(Some(std::time::Duration::from_secs(30)));
+            }
+        });
+
+        tracing::info!("listening on https://{}", socket_addr);
+
+        axum_server::bind_rustls(socket_addr, tls_config)
+            .handle(handle)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .into_diagnostic()?;
+    } else {
+        tracing::info!("listening on http://{}", socket_addr);
+
+        let listener = tokio::net::TcpListener::bind(socket_addr)
+            .await
+            .into_diagnostic()?;
+
+        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .into_diagnostic()?;
+    }
 
     Ok(())
+}
+
+fn init_tracer(
+    endpoint: &str,
+    service_name: &str,
+) -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
+    use opentelemetry_otlp::WithExportConfig;
+    use opentelemetry_sdk::Resource;
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_http()
+        .with_endpoint(endpoint)
+        .build()
+        .into_diagnostic()?;
+
+    let resource = Resource::builder()
+        .with_service_name(service_name.to_string())
+        .build();
+
+    let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_resource(resource)
+        .with_batch_exporter(exporter)
+        .build();
+
+    opentelemetry::global::set_tracer_provider(provider.clone());
+    Ok(provider)
 }
 
 fn load_script_content(args: &Args) -> Result<String> {
@@ -84,11 +168,27 @@ fn load_script_content(args: &Args) -> Result<String> {
         Ok(command.clone())
     } else if let Some(script_path) = &args.script {
         std::fs::read_to_string(script_path).into_diagnostic()
+    } else if args.stdin || is_stdin_piped() {
+        use std::io::Read;
+        let mut content = String::new();
+        std::io::stdin()
+            .read_to_string(&mut content)
+            .into_diagnostic()?;
+        if content.trim().is_empty() {
+            Err(miette::miette!("No script provided via stdin"))
+        } else {
+            Ok(content)
+        }
     } else {
         Err(miette::miette!(
-            "No script provided. Use a script file path or -c 'script'"
+            "No script provided. Use a script file path, -c 'script', or pipe a script via stdin"
         ))
     }
+}
+
+fn is_stdin_piped() -> bool {
+    use std::io::IsTerminal;
+    !std::io::stdin().is_terminal()
 }
 
 fn start_file_watcher(path: std::path::PathBuf, state: Arc<AppState>) {

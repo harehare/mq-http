@@ -1,0 +1,31 @@
+# examples/stdin.mq — reading the script from stdin
+#
+# mq-http supports reading the handler script from stdin.
+# This is useful for quick one-liners or shell pipelines.
+#
+# --- One-liner via -c ---
+#   mq-http -c 'req["method"] + " " + req["path"]'
+#
+# --- Pipe from echo ---
+#   echo 'req["method"] + " " + req["path"]' | mq-http
+#
+# --- Pipe a file ---
+#   cat examples/hello.mq | mq-http
+#
+# --- Heredoc ---
+#   mq-http <<'EOF'
+#   http::json_ok({"path": req["path"], "method": req["method"]})
+#   EOF
+#
+# The server auto-detects a piped stdin (non-TTY) and reads the script from it.
+# Use --stdin to force stdin mode even when stdin is a TTY.
+
+# This file itself is a valid handler — run it normally:
+#   mq-http examples/stdin.mq
+
+http::json_ok({
+  "method":  req["method"],
+  "path":    req["path"],
+  "query":   req["query"],
+  "headers": req["headers"],
+})
