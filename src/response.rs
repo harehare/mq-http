@@ -1,7 +1,10 @@
 use axum::{
     body::{self as ax_body},
     http::{StatusCode, header},
-    response::{Html, IntoResponse, Response, sse::{Event, Sse}},
+    response::{
+        Html, IntoResponse, Response,
+        sse::{Event, Sse},
+    },
 };
 use futures_util::stream;
 use mq_lang::{Ident, RuntimeValue};
@@ -77,34 +80,34 @@ pub fn runtime_value_to_response(value: RuntimeValue, default_format: &str) -> R
 }
 
 fn build_sse_response(map: &BTreeMap<Ident, RuntimeValue>) -> Response {
-    let events: Vec<Result<Event, std::convert::Infallible>> =
-        match map.get(&Ident::new("events")) {
-            Some(RuntimeValue::Array(arr)) => arr
-                .iter()
-                .map(|e| {
-                    let mut event = Event::default();
-                    if let RuntimeValue::Dict(m) = e {
-                        if let Some(v) = m.get(&Ident::new("data")) {
-                            let data = match v {
-                                RuntimeValue::String(s) => s.clone(),
-                                _ => runtime_value_to_json(v).to_string(),
-                            };
-                            event = event.data(data);
-                        }
-                        if let Some(RuntimeValue::String(name)) = m.get(&Ident::new("event")) {
-                            event = event.event(name.clone());
-                        }
-                        if let Some(RuntimeValue::String(id)) = m.get(&Ident::new("id")) {
-                            event = event.id(id.clone());
-                        }
-                    } else {
-                        event = event.data(e.to_string());
+    let events: Vec<Result<Event, std::convert::Infallible>> = match map.get(&Ident::new("events"))
+    {
+        Some(RuntimeValue::Array(arr)) => arr
+            .iter()
+            .map(|e| {
+                let mut event = Event::default();
+                if let RuntimeValue::Dict(m) = e {
+                    if let Some(v) = m.get(&Ident::new("data")) {
+                        let data = match v {
+                            RuntimeValue::String(s) => s.clone(),
+                            _ => runtime_value_to_json(v).to_string(),
+                        };
+                        event = event.data(data);
                     }
-                    Ok(event)
-                })
-                .collect(),
-            _ => vec![],
-        };
+                    if let Some(RuntimeValue::String(name)) = m.get(&Ident::new("event")) {
+                        event = event.event(name.clone());
+                    }
+                    if let Some(RuntimeValue::String(id)) = m.get(&Ident::new("id")) {
+                        event = event.id(id.clone());
+                    }
+                } else {
+                    event = event.data(e.to_string());
+                }
+                Ok(event)
+            })
+            .collect(),
+        _ => vec![],
+    };
 
     Sse::new(stream::iter(events)).into_response()
 }
@@ -116,11 +119,8 @@ fn build_dict_response(
 ) -> Response {
     // Check for SSE response: {"sse": [event, ...]}
     if let Some(RuntimeValue::Array(_)) = map.get(&Ident::new("sse")) {
-        let sse_map: BTreeMap<Ident, RuntimeValue> = std::iter::once((
-            Ident::new("events"),
-            map[&Ident::new("sse")].clone(),
-        ))
-        .collect();
+        let sse_map: BTreeMap<Ident, RuntimeValue> =
+            std::iter::once((Ident::new("events"), map[&Ident::new("sse")].clone())).collect();
         return build_sse_response(&sse_map);
     }
 
@@ -156,10 +156,8 @@ fn build_dict_response(
 
     if let Some(RuntimeValue::Dict(cookies)) = map.get(&Ident::new("cookies")) {
         for (k, v) in cookies {
-            response_builder = response_builder.header(
-                header::SET_COOKIE,
-                format!("{}={}", k.as_str(), v),
-            );
+            response_builder =
+                response_builder.header(header::SET_COOKIE, format!("{}={}", k.as_str(), v));
         }
     }
 

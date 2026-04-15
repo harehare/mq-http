@@ -52,8 +52,7 @@ pub fn build_request_value(
         if k == header::COOKIE {
             for cookie in val_str.split(';') {
                 if let Some((name, val)) = cookie.trim().split_once('=') {
-                    cookies_dict
-                        .insert(Ident::new(name), RuntimeValue::String(val.to_string()));
+                    cookies_dict.insert(Ident::new(name), RuntimeValue::String(val.to_string()));
                 }
             }
         }

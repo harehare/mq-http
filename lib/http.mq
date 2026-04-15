@@ -2,8 +2,8 @@
 # HTTP response builders, request helpers, and router utilities
 #
 # Usage:
-#   mq-http my_handler.mq -L ./lib
-#   Then in my_handler.mq: include "http"
+# mq-http my_handler.mq -L ./lib
+# Then in my_handler.mq: include "http"
 
 # ---------------------------------------------------------------------------
 # Response builders
@@ -81,10 +81,10 @@ def req_header(r, name):
 end
 
 # Method predicates
-def is_get(r):    r["method"] == "GET";
-def is_post(r):   r["method"] == "POST";
-def is_put(r):    r["method"] == "PUT";
-def is_patch(r):  r["method"] == "PATCH";
+def is_get(r): r["method"] == "GET";
+def is_post(r): r["method"] == "POST";
+def is_put(r): r["method"] == "PUT";
+def is_patch(r): r["method"] == "PATCH";
 def is_delete(r): r["method"] == "DELETE";
 
 # ---------------------------------------------------------------------------
@@ -127,10 +127,10 @@ def route_prefix(r, method, prefix, handler):
 end
 
 # Shorthand per-method helpers
-def get_route(r, path, handler):    route(r, "GET",    path, handler);
-def post_route(r, path, handler):   route(r, "POST",   path, handler);
-def put_route(r, path, handler):    route(r, "PUT",    path, handler);
-def patch_route(r, path, handler):  route(r, "PATCH",  path, handler);
+def get_route(r, path, handler): route(r, "GET", path, handler);
+def post_route(r, path, handler): route(r, "POST", path, handler);
+def put_route(r, path, handler): route(r, "PUT", path, handler);
+def patch_route(r, path, handler): route(r, "PATCH", path, handler);
 def delete_route(r, path, handler): route(r, "DELETE", path, handler);
 
 # ---------------------------------------------------------------------------
@@ -161,18 +161,18 @@ end
 # Falls back to not_found() when no route matches.
 #
 # Example:
-#   dispatch(req, [
-#     fn(r): get_route(r,  "/",      fn(_): ok("hello"););,
-#     fn(r): post_route(r, "/echo",  fn(r): ok(r["body"]););,
-#   ])
+# dispatch(req, [
+# fn(r): get_route(r,  "/",      fn(_): ok("hello"););,
+# fn(r): post_route(r, "/echo",  fn(r): ok(r["body"]););,
+# ])
 def dispatch(r, handlers):
-  do
-    var result = None
-    | var i = 0
-    | while (i < len(handlers) && is_none(result)):
-        result = get(handlers, i)(r)
-        | i += 1
-      end
-    | if (is_none(result)): not_found() else: result
-  end
+do
+  var result = None
+  | var i = 0
+  | while (i < len(handlers) && is_none(result)):
+      result = handlers[i](r)
+      | i += 1
+    end
+  | if (is_none(result)): not_found() else: result
+end
 end
