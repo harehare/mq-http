@@ -5,16 +5,37 @@ use crate::state::AppState;
 use axum::{
     body::Bytes,
     extract::{ConnectInfo, Query, State},
-    http::{HeaderMap, Method, StatusCode, Uri, Version},
+    http::{HeaderMap, Method, StatusCode, Uri, Version, request::Parts},
     response::{IntoResponse, Response},
 };
 use mq_lang::RuntimeValue;
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+/// Extracts the remote address from the connection.
+/// Falls back to "127.0.0.1" when ConnectInfo is not available (e.g. Unix socket mode).
+pub struct RemoteAddr(pub String);
+
+impl<S> axum::extract::FromRequestParts<S> for RemoteAddr
+where
+    S: Send + Sync,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        if let Some(ConnectInfo(addr)) = parts.extensions.get::<ConnectInfo<SocketAddr>>() {
+            Ok(RemoteAddr(addr.to_string()))
+        } else {
+            Ok(RemoteAddr("127.0.0.1".to_string()))
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn handler(
-    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
+    remote: RemoteAddr,
     State(state): State<Arc<AppState>>,
     method: Method,
     uri: Uri,
@@ -31,7 +52,7 @@ pub async fn handler(
     };
 
     let req_value = build_request_value(
-        remote_addr,
+        &remote.0,
         &method,
         &uri,
         version,

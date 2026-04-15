@@ -81,15 +81,52 @@ async fn main() -> Result<()> {
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
         .with_state(state);
 
-    let socket_addr: SocketAddr = format!("{}:{}", addr, port).parse().into_diagnostic()?;
-
-    let result = serve(app, socket_addr, args.tls_cert.as_deref(), args.tls_key.as_deref()).await;
-
-    if let Some(provider) = otel_provider {
-        if let Err(e) = provider.shutdown() {
+    #[cfg(unix)]
+    if let Some(socket_path) = &args.socket {
+        let result = serve_unix(app, socket_path).await;
+        if let Some(provider) = otel_provider
+            && let Err(e) = provider.shutdown()
+        {
             tracing::warn!("Failed to shutdown OpenTelemetry provider: {:?}", e);
         }
+        return result;
     }
+
+    let socket_addr: SocketAddr = format!("{}:{}", addr, port).parse().into_diagnostic()?;
+
+    let result = serve(
+        app,
+        socket_addr,
+        args.tls_cert.as_deref(),
+        args.tls_key.as_deref(),
+    )
+    .await;
+
+    if let Some(provider) = otel_provider
+        && let Err(e) = provider.shutdown()
+    {
+        tracing::warn!("Failed to shutdown OpenTelemetry provider: {:?}", e);
+    }
+
+    result
+}
+
+#[cfg(unix)]
+async fn serve_unix(app: Router, socket_path: &std::path::Path) -> Result<()> {
+    if socket_path.exists() {
+        std::fs::remove_file(socket_path).into_diagnostic()?;
+    }
+
+    let listener = tokio::net::UnixListener::bind(socket_path).into_diagnostic()?;
+    tracing::info!("listening on unix:{}", socket_path.display());
+
+    let result = axum::serve(listener, app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .into_diagnostic();
+
+    // Clean up socket file on shutdown.
+    let _ = std::fs::remove_file(socket_path);
 
     result
 }
@@ -128,10 +165,13 @@ async fn serve(
             .await
             .into_diagnostic()?;
 
-        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-            .with_graceful_shutdown(shutdown_signal())
-            .await
-            .into_diagnostic()?;
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .into_diagnostic()?;
     }
 
     Ok(())

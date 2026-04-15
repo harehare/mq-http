@@ -1,4 +1,7 @@
-<h1 align="center">mq-http</h1>
+<h1 align="center">
+  <img src="assets/logo.svg" width="80" height="80" alt="mq-http logo" /><br/>
+  mq-http
+</h1>
 
 A lightweight HTTP server that executes [mq](https://mqlang.org/) scripts for each request.
 
@@ -25,6 +28,9 @@ mq-http --stdin < script.mq
 
 # Run on a custom address and port
 mq-http -a 0.0.0.0 -p 8080 script.mq
+
+# Listen on a Unix domain socket (Unix only)
+mq-http --socket /tmp/mq.sock script.mq
 
 # Hot-reload on file change
 mq-http --reload script.mq
@@ -91,6 +97,14 @@ The `http` module is embedded in the binary and available in every script as `ht
 | `http::path_eq(req, path)` | Exact path match predicate |
 | `http::path_prefix(req, prefix)` | Prefix match predicate |
 | `http::path_segments(req)` | Split path into `["a", "b", "c"]` |
+
+### Server-Sent Events
+
+| Function | Description |
+|----------|-------------|
+| `http::sse(events)` | Return an SSE stream (`text/event-stream`) |
+| `http::sse_event(data)` | Build a plain data event |
+| `http::sse_event_named(event, data)` | Build a named event with an event type |
 
 ## Script Examples
 
@@ -171,6 +185,39 @@ http::dispatch(req, [
 EOF
 ```
 
+### Server-Sent Events
+
+Return an SSE stream from any route by calling `http::sse(events)`:
+
+```mq
+http::sse([
+  http::sse_event("hello"),
+  http::sse_event("world"),
+  http::sse_event_named("done", "finished"),
+])
+```
+
+Named events work with `EventSource.addEventListener("done", ...)` in the browser.
+Each event can also carry JSON data:
+
+```mq
+http::sse([
+  http::sse_event({"user": "alice", "score": 42}),
+  http::sse_event({"user": "bob",   "score": 17}),
+])
+```
+
+### Unix domain socket
+
+Start the server on a Unix socket instead of a TCP port:
+
+```bash
+mq-http --socket /tmp/mq.sock -c 'http::json_ok({"ok": true})'
+
+# Query it with curl
+curl --unix-socket /tmp/mq.sock http://localhost/
+```
+
 ## Output Format (`-F`)
 
 Controls how the script's return value is serialised into the HTTP response.
@@ -214,6 +261,7 @@ Options:
       --args <NAME> <VALUE> Set a named string value
       --rawfile <NAME> <FILE> Set a named value from file contents
   -r, --reload              Hot-reload script on file change
+      --socket <PATH>       Listen on a Unix domain socket (Unix only; mutually exclusive with --port/--addr)
       --tls-cert <FILE>     Path to TLS certificate file (PEM)
       --tls-key <FILE>      Path to TLS private key file (PEM)
       --otel-endpoint <URL> OpenTelemetry OTLP endpoint
@@ -228,6 +276,10 @@ Options:
 | `MQ_HTTP_ADDR` | Override `--addr` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Override `--otel-endpoint` |
 | `OTEL_SERVICE_NAME` | Override `--otel-service-name` |
+
+## Acknowledgements
+
+Inspired by [http-nu](https://github.com/cablehead/http-nu).
 
 ## License
 

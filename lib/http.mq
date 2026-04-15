@@ -134,6 +134,26 @@ def patch_route(r, path, handler):  route(r, "PATCH",  path, handler);
 def delete_route(r, path, handler): route(r, "DELETE", path, handler);
 
 # ---------------------------------------------------------------------------
+# Server-Sent Events
+# ---------------------------------------------------------------------------
+
+# Return a Server-Sent Events stream response.
+# events: array of sse_event() / sse_event_named() dicts
+def sse(events):
+  {"sse": events}
+end
+
+# Build a plain data event: {data: value}
+def sse_event(data):
+  {"data": data}
+end
+
+# Build a named event with an event type: {event: name, data: value}
+def sse_event_named(event, data):
+  {"event": event, "data": data}
+end
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 

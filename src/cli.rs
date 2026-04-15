@@ -60,4 +60,9 @@ pub struct Args {
     /// Read the mq script from stdin
     #[arg(long)]
     pub stdin: bool,
+
+    /// Path to a Unix domain socket to listen on (mutually exclusive with --port/--addr)
+    #[cfg(unix)]
+    #[arg(long, conflicts_with_all = ["port", "addr", "tls_cert", "tls_key"])]
+    pub socket: Option<PathBuf>,
 }

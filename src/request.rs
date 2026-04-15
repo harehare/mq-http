@@ -1,10 +1,9 @@
 use axum::http::{HeaderMap, Method, Uri, Version, header};
 use mq_lang::{Ident, RuntimeValue};
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
 
 pub fn build_request_value(
-    remote_addr: SocketAddr,
+    remote_addr: &str,
     method: &Method,
     uri: &Uri,
     version: Version,
@@ -33,7 +32,7 @@ pub fn build_request_value(
     );
     req_dict.insert(
         Ident::new("remote_addr"),
-        RuntimeValue::String(remote_addr.to_string()),
+        RuntimeValue::String(remote_addr.to_owned()),
     );
 
     let mut query_dict = BTreeMap::new();
