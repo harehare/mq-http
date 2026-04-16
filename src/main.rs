@@ -47,11 +47,8 @@ async fn openapi_json_handler(State(state): State<Arc<AppState>>) -> Response {
         }
     };
     let routes = openapi::parse_script(&script);
-    let spec = openapi::build_openapi_json(
-        &state.args.docs_title,
-        &state.args.docs_version,
-        &routes,
-    );
+    let spec =
+        openapi::build_openapi_json(&state.args.docs_title, &state.args.docs_version, &routes);
     Response::builder()
         .header(header::CONTENT_TYPE, "application/json")
         .body(axum::body::Body::from(spec.to_string()))
@@ -123,9 +120,7 @@ async fn main() -> Result<()> {
         .route("/{*path}", any(handler));
 
     let app = if args.docs {
-        tracing::info!(
-            "API docs enabled — Swagger UI: /_docs  OpenAPI JSON: /_openapi.json"
-        );
+        tracing::info!("API docs enabled — Swagger UI: /_docs  OpenAPI JSON: /_openapi.json");
         Router::new()
             .route("/_docs", get(swagger_ui_handler))
             .route("/_openapi.json", get(openapi_json_handler))

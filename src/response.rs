@@ -219,10 +219,7 @@ mod tests {
     #[case(RuntimeValue::String("hello".into()),   json!("hello"))]
     #[case(RuntimeValue::Boolean(true),            json!(true))]
     #[case(RuntimeValue::Boolean(false),           json!(false))]
-    fn test_to_json_primitives(
-        #[case] value: RuntimeValue,
-        #[case] expected: serde_json::Value,
-    ) {
+    fn test_to_json_primitives(#[case] value: RuntimeValue, #[case] expected: serde_json::Value) {
         assert_eq!(runtime_value_to_json(&value), expected);
     }
 
@@ -259,17 +256,13 @@ mod tests {
     // ---- runtime_value_to_response: plain string ---------------------------
 
     #[rstest]
-    #[case("json",     "application/json")]
+    #[case("json", "application/json")]
     #[case("markdown", "text/markdown; charset=utf-8")]
-    #[case("text",     "text/plain; charset=utf-8")]
-    #[case("html",     "text/html; charset=utf-8")]
+    #[case("text", "text/plain; charset=utf-8")]
+    #[case("html", "text/html; charset=utf-8")]
     #[tokio::test]
-    async fn test_string_response_content_type(
-        #[case] format: &str,
-        #[case] expected_ct: &str,
-    ) {
-        let resp =
-            runtime_value_to_response(RuntimeValue::String("body".into()), format);
+    async fn test_string_response_content_type(#[case] format: &str, #[case] expected_ct: &str) {
+        let resp = runtime_value_to_response(RuntimeValue::String("body".into()), format);
         let ct = resp
             .headers()
             .get("content-type")
@@ -363,22 +356,14 @@ mod tests {
         use std::collections::BTreeMap;
 
         let mut cookies_map = BTreeMap::new();
-        cookies_map.insert(
-            Ident::new("session"),
-            RuntimeValue::String("abc123".into()),
-        );
+        cookies_map.insert(Ident::new("session"), RuntimeValue::String("abc123".into()));
         let mut map = BTreeMap::new();
         map.insert(Ident::new("status"), RuntimeValue::Number(200i64.into()));
         map.insert(Ident::new("cookies"), RuntimeValue::Dict(cookies_map));
         map.insert(Ident::new("body"), RuntimeValue::String("ok".into()));
 
         let resp = runtime_value_to_response(RuntimeValue::Dict(map), "json");
-        let cookie = resp
-            .headers()
-            .get("set-cookie")
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let cookie = resp.headers().get("set-cookie").unwrap().to_str().unwrap();
         assert!(cookie.contains("session=abc123"));
     }
 }
