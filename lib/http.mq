@@ -166,7 +166,6 @@ end
 # fn(r): post_route(r, "/echo",  fn(r): ok(r["body"]););,
 # ])
 def dispatch(r, handlers):
-do
   var result = None
   | var i = 0
   | while (i < len(handlers) && is_none(result)):
@@ -174,5 +173,4 @@ do
       | i += 1
     end
   | if (is_none(result)): not_found() else: result
-end
 end

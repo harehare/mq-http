@@ -61,6 +61,42 @@ pub struct Args {
     #[arg(long)]
     pub stdin: bool,
 
+    /// Enable /_docs (Swagger UI) and /_openapi.json endpoints
+    #[arg(long)]
+    pub docs: bool,
+
+    /// API title shown in Swagger UI (requires --docs)
+    #[arg(long, default_value = "API")]
+    pub docs_title: String,
+
+    /// API version shown in Swagger UI (requires --docs)
+    #[arg(long, default_value = "0.1.0")]
+    pub docs_version: String,
+
+    /// Allowed CORS origins (comma-separated). Use '*' to allow all origins.
+    #[arg(long)]
+    pub cors_origins: Option<String>,
+
+    /// Request timeout in seconds
+    #[arg(long)]
+    pub timeout: Option<u64>,
+
+    /// Rate limit: max requests per second per IP
+    #[arg(long)]
+    pub rate_limit: Option<u32>,
+
+    /// Required API key (via X-Api-Key header or Authorization: Bearer <key>)
+    #[arg(long, env = "MQ_HTTP_API_KEY")]
+    pub api_key: Option<String>,
+
+    /// Required Basic auth credentials in user:password format
+    #[arg(long, env = "MQ_HTTP_BASIC_AUTH")]
+    pub basic_auth: Option<String>,
+
+    /// Attach X-Request-Id to every response
+    #[arg(long)]
+    pub request_id: bool,
+
     /// Path to a Unix domain socket to listen on (mutually exclusive with --port/--addr)
     #[cfg(unix)]
     #[arg(long, conflicts_with_all = ["port", "addr", "tls_cert", "tls_key"])]
