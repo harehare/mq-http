@@ -3,6 +3,10 @@
 # Run:
 #   mq-http examples/api.mq
 #
+# Run with Swagger UI / OpenAPI JSON enabled:
+#   mq-http examples/api.mq --docs --docs-title "My API" --docs-version "1.0.0"
+#   Then open http://localhost:3000/_docs
+#
 # Test:
 #   curl http://localhost:3000/
 #   curl http://localhost:3000/health
@@ -10,19 +14,48 @@
 #   curl http://localhost:3000/greet?name=Alice
 #
 # The http module is built into mq-http and always available as http::*
+#
+# ---------------------------------------------------------------------------
+# OpenAPI annotations
+#
+# Place `# @tag value` comments immediately before a `def` to document it.
+# Supported tags:
+#   @summary     Short one-line description
+#   @description Longer description (multiple lines allowed)
+#   @tag         Tag / group name shown in Swagger UI
+#   @param       <name> <in> <type> <required> <"description">
+#                  in: query | path | header | cookie
+#                  type: string | integer | number | boolean | array | object
+#   @response    <status> [content-type] ["description"]
+# ---------------------------------------------------------------------------
 
+# @summary Render the home page
+# @tag pages
+# @response 200 text/html "HTML welcome page"
 def handle_root(_):
   http::html_ok("<h1>mq-http API</h1><p>Try GET /health or POST /echo</p>")
 end
 
+# @summary Health check
+# @description Returns the current health status of the service.
+# @tag health
+# @response 200 application/json "Service is healthy"
 def handle_health(_):
   http::json_ok({"status": "ok"})
 end
 
+# @summary Echo the request body
+# @description Returns whatever JSON body was sent in the request.
+# @tag debug
+# @response 200 application/json "Echoed body"
 def handle_echo(r):
   http::json_ok(r["body"])
 end
 
+# @summary Greet a user by name
+# @tag greeting
+# @param name query string false "Name to greet (defaults to 'world')"
+# @response 200 application/json "Greeting message"
 def handle_greet(r):
   let name = http::query_param(r, "name", "world")
   | http::json_ok({"message": "Hello, " + name + "!"})

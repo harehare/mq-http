@@ -1,21 +1,62 @@
 mod cli;
 mod engine;
 mod handler;
+mod middleware;
+mod openapi;
 mod request;
 mod response;
 mod state;
 
 use crate::cli::Args;
 use crate::handler::handler;
+use crate::middleware::RateLimiter;
 use crate::state::AppState;
-use axum::{Router, routing::any};
+use axum::{
+    Router,
+    extract::State,
+    http::{HeaderValue, header},
+    middleware as axum_middleware,
+    response::{Html, IntoResponse, Response},
+    routing::{any, get},
+};
 use clap::Parser;
 use miette::{IntoDiagnostic, Result};
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
-use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::trace::TraceLayer;
+use tower_http::{
+    compression::CompressionLayer,
+    cors::{Any, CorsLayer},
+    limit::RequestBodyLimitLayer,
+    trace::TraceLayer,
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+async fn swagger_ui_handler(State(state): State<Arc<AppState>>) -> Html<String> {
+    Html(openapi::swagger_ui_html(&state.args.docs_title))
+}
+
+async fn openapi_json_handler(State(state): State<Arc<AppState>>) -> Response {
+    let script = match state.script_content.read().unwrap().clone() {
+        Some(s) => s,
+        None => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Script not loaded",
+            )
+                .into_response();
+        }
+    };
+    let routes = openapi::parse_script(&script);
+    let spec = openapi::build_openapi_json(
+        &state.args.docs_title,
+        &state.args.docs_version,
+        &routes,
+    );
+    Response::builder()
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(axum::body::Body::from(spec.to_string()))
+        .unwrap_or_default()
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -61,9 +102,12 @@ async fn main() -> Result<()> {
     let content = load_script_content(&args)?;
     let script_content = Arc::new(RwLock::new(Some(content)));
 
+    let rate_limiter = args.rate_limit.map(RateLimiter::new);
+
     let state = Arc::new(AppState {
         args: args.clone(),
         script_content,
+        rate_limiter,
     });
 
     if args.reload {
@@ -74,11 +118,38 @@ async fn main() -> Result<()> {
         }
     }
 
-    let app = Router::new()
+    let base = Router::new()
         .route("/", any(handler))
-        .route("/{*path}", any(handler))
-        .layer(TraceLayer::new_for_http())
+        .route("/{*path}", any(handler));
+
+    let app = if args.docs {
+        tracing::info!(
+            "API docs enabled — Swagger UI: /_docs  OpenAPI JSON: /_openapi.json"
+        );
+        Router::new()
+            .route("/_docs", get(swagger_ui_handler))
+            .route("/_openapi.json", get(openapi_json_handler))
+            .merge(base)
+    } else {
+        base
+    };
+
+    let cors = build_cors_layer(args.cors_origins.as_deref());
+
+    let app = app
+        // Innermost: body size limit applied before any user logic
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
+        // Combined custom middleware: request-id, rate limiting, auth, timeout
+        .layer(axum_middleware::from_fn_with_state(
+            state.clone(),
+            middleware::middleware,
+        ))
+        // CORS headers / preflight (runs before auth so OPTIONS isn't rejected)
+        .layer(cors)
+        // Compress responses when the client sends Accept-Encoding
+        .layer(CompressionLayer::new())
+        // Outermost: trace every request (sees final status after all layers)
+        .layer(TraceLayer::new_for_http())
         .with_state(state);
 
     #[cfg(unix)]
@@ -229,6 +300,28 @@ fn load_script_content(args: &Args) -> Result<String> {
 fn is_stdin_piped() -> bool {
     use std::io::IsTerminal;
     !std::io::stdin().is_terminal()
+}
+
+/// Build a `CorsLayer` from the `--cors-origins` CLI value.
+///
+/// - `None`  → no CORS support (cross-origin requests are blocked by the browser's same-origin policy)
+/// - `"*"`   → permissive: any origin, any method, any header
+/// - `"a,b"` → allow specific origins only
+fn build_cors_layer(origins: Option<&str>) -> CorsLayer {
+    match origins {
+        None => CorsLayer::new(), // no allowed origins → CORS requests rejected
+        Some("*") => CorsLayer::permissive(),
+        Some(list) => {
+            let values: Vec<HeaderValue> = list
+                .split(',')
+                .filter_map(|o| o.trim().parse().ok())
+                .collect();
+            CorsLayer::new()
+                .allow_origin(values)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+    }
 }
 
 fn start_file_watcher(path: std::path::PathBuf, state: Arc<AppState>) {

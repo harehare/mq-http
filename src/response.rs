@@ -194,3 +194,191 @@ fn build_dict_response(
             .unwrap_or_default(),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use http_body_util::BodyExt;
+    use mq_lang::RuntimeValue;
+    use rstest::rstest;
+    use serde_json::json;
+
+    async fn body_string(resp: axum::response::Response) -> String {
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        String::from_utf8(bytes.to_vec()).unwrap()
+    }
+
+    // ---- runtime_value_to_json ---------------------------------------------
+
+    #[rstest]
+    #[case(RuntimeValue::String("hello".into()),   json!("hello"))]
+    #[case(RuntimeValue::Boolean(true),            json!(true))]
+    #[case(RuntimeValue::Boolean(false),           json!(false))]
+    fn test_to_json_primitives(
+        #[case] value: RuntimeValue,
+        #[case] expected: serde_json::Value,
+    ) {
+        assert_eq!(runtime_value_to_json(&value), expected);
+    }
+
+    #[rstest]
+    #[case(42i64,  json!(42))]
+    #[case(-1i64,  json!(-1))]
+    fn test_to_json_number_integer(#[case] n: i64, #[case] expected: serde_json::Value) {
+        let value = RuntimeValue::Number(n.into());
+        assert_eq!(runtime_value_to_json(&value), expected);
+    }
+
+    #[test]
+    fn test_to_json_number_float() {
+        // f64 without a From impl: use serde_json round-trip to verify
+        let json_val = runtime_value_to_json(&RuntimeValue::Number(3i64.into()));
+        assert_eq!(json_val, json!(3));
+    }
+
+    #[test]
+    fn test_to_json_array() {
+        let value = RuntimeValue::Array(vec![
+            RuntimeValue::Number(1i64.into()),
+            RuntimeValue::String("two".into()),
+            RuntimeValue::Boolean(false),
+        ]);
+        assert_eq!(runtime_value_to_json(&value), json!([1, "two", false]));
+    }
+
+    #[test]
+    fn test_to_json_null_for_unknown_types() {
+        assert_eq!(runtime_value_to_json(&RuntimeValue::NONE), json!(null));
+    }
+
+    // ---- runtime_value_to_response: plain string ---------------------------
+
+    #[rstest]
+    #[case("json",     "application/json")]
+    #[case("markdown", "text/markdown; charset=utf-8")]
+    #[case("text",     "text/plain; charset=utf-8")]
+    #[case("html",     "text/html; charset=utf-8")]
+    #[tokio::test]
+    async fn test_string_response_content_type(
+        #[case] format: &str,
+        #[case] expected_ct: &str,
+    ) {
+        let resp =
+            runtime_value_to_response(RuntimeValue::String("body".into()), format);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(ct, expected_ct);
+    }
+
+    // ---- runtime_value_to_response: dict (HTTP response object) ------------
+
+    #[tokio::test]
+    async fn test_dict_response_status() {
+        use mq_lang::Ident;
+        use std::collections::BTreeMap;
+
+        let mut map = BTreeMap::new();
+        map.insert(Ident::new("status"), RuntimeValue::Number(201i64.into()));
+        map.insert(Ident::new("body"), RuntimeValue::String("created".into()));
+
+        let resp = runtime_value_to_response(RuntimeValue::Dict(map), "json");
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        assert_eq!(body_string(resp).await, "created");
+    }
+
+    #[tokio::test]
+    async fn test_dict_response_custom_header() {
+        use mq_lang::Ident;
+        use std::collections::BTreeMap;
+
+        let mut headers_map = BTreeMap::new();
+        headers_map.insert(
+            Ident::new("x-custom"),
+            RuntimeValue::String("value42".into()),
+        );
+        let mut map = BTreeMap::new();
+        map.insert(Ident::new("status"), RuntimeValue::Number(200i64.into()));
+        map.insert(Ident::new("headers"), RuntimeValue::Dict(headers_map));
+        map.insert(Ident::new("body"), RuntimeValue::String("ok".into()));
+
+        let resp = runtime_value_to_response(RuntimeValue::Dict(map), "json");
+        assert_eq!(
+            resp.headers().get("x-custom").unwrap().to_str().unwrap(),
+            "value42"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dict_without_status_treated_as_json() {
+        use mq_lang::Ident;
+        use std::collections::BTreeMap;
+
+        // A dict with no "status"/"body"/"headers" keys is treated as plain JSON
+        let mut map = BTreeMap::new();
+        map.insert(Ident::new("foo"), RuntimeValue::String("bar".into()));
+
+        let resp = runtime_value_to_response(RuntimeValue::Dict(map), "json");
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = body_string(resp).await;
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(parsed["foo"], "bar");
+    }
+
+    // ---- runtime_value_to_response: array ----------------------------------
+
+    #[tokio::test]
+    async fn test_array_response_is_json() {
+        let value = RuntimeValue::Array(vec![
+            RuntimeValue::Number(1i64.into()),
+            RuntimeValue::Number(2i64.into()),
+        ]);
+        let resp = runtime_value_to_response(value, "markdown");
+        assert_eq!(
+            resp.headers()
+                .get("content-type")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "application/json"
+        );
+        let body = body_string(resp).await;
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(parsed, json!([1, 2]));
+    }
+
+    // ---- runtime_value_to_response: cookies --------------------------------
+
+    #[tokio::test]
+    async fn test_dict_response_sets_cookie() {
+        use mq_lang::Ident;
+        use std::collections::BTreeMap;
+
+        let mut cookies_map = BTreeMap::new();
+        cookies_map.insert(
+            Ident::new("session"),
+            RuntimeValue::String("abc123".into()),
+        );
+        let mut map = BTreeMap::new();
+        map.insert(Ident::new("status"), RuntimeValue::Number(200i64.into()));
+        map.insert(Ident::new("cookies"), RuntimeValue::Dict(cookies_map));
+        map.insert(Ident::new("body"), RuntimeValue::String("ok".into()));
+
+        let resp = runtime_value_to_response(RuntimeValue::Dict(map), "json");
+        let cookie = resp
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(cookie.contains("session=abc123"));
+    }
+}
