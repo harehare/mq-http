@@ -1,17 +1,17 @@
 # examples/api.mq — REST API with routing
 #
 # Run:
-#   mq-http examples/api.mq
+# mq-http examples/api.mq
 #
 # Run with Swagger UI / OpenAPI JSON enabled:
-#   mq-http examples/api.mq --docs --docs-title "My API" --docs-version "1.0.0"
-#   Then open http://localhost:3000/_docs
+# mq-http examples/api.mq --docs --docs-title "My API" --docs-version "1.0.0"
+# Then open http://localhost:3000/_docs
 #
 # Test:
-#   curl http://localhost:3000/
-#   curl http://localhost:3000/health
-#   curl -X POST http://localhost:3000/echo -d '{"msg":"hi"}' -H 'Content-Type: application/json'
-#   curl http://localhost:3000/greet?name=Alice
+# curl http://localhost:3000/
+# curl http://localhost:3000/health
+# curl -X POST http://localhost:3000/echo -d '{"msg":"hi"}' -H 'Content-Type: application/json'
+# curl http://localhost:3000/greet?name=Alice
 #
 # The http module is built into mq-http and always available as http::*
 #
@@ -20,13 +20,13 @@
 #
 # Place `# @tag value` comments immediately before a `def` to document it.
 # Supported tags:
-#   @summary     Short one-line description
-#   @description Longer description (multiple lines allowed)
-#   @tag         Tag / group name shown in Swagger UI
-#   @param       <name> <in> <type> <required> <"description">
-#                  in: query | path | header | cookie
-#                  type: string | integer | number | boolean | array | object
-#   @response    <status> [content-type] ["description"]
+# @summary     Short one-line description
+# @description Longer description (multiple lines allowed)
+# @tag         Tag / group name shown in Swagger UI
+# @param       <name> <in> <type> <required> <"description">
+# in: query | path | header | cookie
+# type: string | integer | number | boolean | array | object
+# @response    <status> [content-type] ["description"]
 # ---------------------------------------------------------------------------
 
 # @summary Render the home page
@@ -61,9 +61,11 @@ def handle_greet(r):
   | http::json_ok({"message": "Hello, " + name + "!"})
 end
 
+|
+
 http::dispatch(req, [
-  fn(r): http::get_route(r,  "/",       fn(r): handle_root(r););,
-  fn(r): http::post_route(r, "/echo",   fn(r): handle_echo(r););,
-  fn(r): http::get_route(r,  "/health", fn(r): handle_health(r););,
-  fn(r): http::get_route(r,  "/greet",  fn(r): handle_greet(r););,
+  fn(r): http::get_route(r, "/", fn(r): handle_root(r););,
+  fn(r): http::post_route(r, "/echo", fn(r): handle_echo(r););,
+  fn(r): http::get_route(r, "/health", fn(r): handle_health(r););,
+  fn(r): http::get_route(r, "/greet", fn(r): handle_greet(r););,
 ])
