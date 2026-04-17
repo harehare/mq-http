@@ -1,5 +1,8 @@
-<h1 align="center">
+<div align="center">
   <img src="assets/logo.svg" width="80" height="80" alt="mq-http logo" /><br/>
+</div>
+
+<h1 align="center">
   mq-http
 </h1>
 

@@ -19,7 +19,6 @@
 ///
 /// `in` for `@param` can be: `query`, `path`, `header`, `cookie`
 /// `type` for `@param` can be: `string`, `integer`, `number`, `boolean`, `array`, `object`
-use regex::Regex;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -184,40 +183,104 @@ fn build_annotation(lines: &[String]) -> FuncAnnotation {
 /// - `http::get_route(r, "/path", fn(r): handler(r);)`
 /// - `http::route(r, "GET", "/path", fn(r): handler(r);)`
 pub(crate) fn extract_routes(content: &str) -> Vec<(String, String, Option<String>)> {
+    let preprocessed = inject_pipe_after_top_level_end(content);
+    let (nodes, _) = mq_lang::parse_recovery(&preprocessed);
     let mut routes = Vec::new();
-
-    // Match http::(method)_route(r, "path", ...)
-    let method_re =
-        Regex::new(r#"http::(get|post|put|patch|delete)_route\(\s*\w+\s*,\s*"([^"]+)""#)
-            .expect("valid regex");
-
-    // Match http::route(r, "METHOD", "path", ...)
-    let generic_re =
-        Regex::new(r#"http::route\(\s*\w+\s*,\s*"(GET|POST|PUT|PATCH|DELETE)"\s*,\s*"([^"]+)""#)
-            .expect("valid regex");
-
-    // After the route call, look for `fn(...): handler_name(` to find the handler
-    let handler_re = Regex::new(r#"fn\([^)]*\):\s*(\w+)\("#).expect("valid regex");
-
-    for cap in method_re.captures_iter(content) {
-        let method = cap[1].to_uppercase();
-        let path = cap[2].to_string();
-        let end = cap.get(0).unwrap().end();
-        let ctx = &content[end..content.len().min(end + 200)];
-        let handler = handler_re.captures(ctx).map(|c| c[1].to_string());
-        routes.push((method, path, handler));
+    for node in &nodes {
+        collect_routes(node, &mut routes);
     }
-
-    for cap in generic_re.captures_iter(content) {
-        let method = cap[1].to_string();
-        let path = cap[2].to_string();
-        let end = cap.get(0).unwrap().end();
-        let ctx = &content[end..content.len().min(end + 200)];
-        let handler = handler_re.captures(ctx).map(|c| c[1].to_string());
-        routes.push((method, path, handler));
-    }
-
     routes
+}
+
+/// Insert `|` after each top-level `end` so that `def...end` blocks followed
+/// by a route expression are connected in the CST without requiring the caller
+/// to write explicit pipe separators.
+fn inject_pipe_after_top_level_end(content: &str) -> String {
+    let mut depth: usize = 0;
+    let mut result = String::with_capacity(content.len() + 16);
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("def ") {
+            depth += 1;
+        }
+        result.push_str(line);
+        result.push('\n');
+        if trimmed == "end" && depth > 0 {
+            depth -= 1;
+            if depth == 0 {
+                result.push_str("|\n");
+            }
+        }
+    }
+    result
+}
+
+fn collect_routes(node: &mq_lang::CstNode, routes: &mut Vec<(String, String, Option<String>)>) {
+    if matches!(node.kind, mq_lang::CstNodeKind::QualifiedAccess)
+        && node.token.as_ref().map(|t| t.to_string()).as_deref() == Some("http")
+    {
+        let func_name = node
+            .children
+            .iter()
+            .find(|c| matches!(c.kind, mq_lang::CstNodeKind::Ident))
+            .and_then(|c| c.get_identifier());
+
+        if let Some(func) = func_name {
+            let strings: Vec<String> = node
+                .children
+                .iter()
+                .filter_map(|c| extract_string_literal(c.as_ref()))
+                .collect();
+
+            let handler = node
+                .children
+                .iter()
+                .find(|c| c.is_fn())
+                .and_then(|c| find_first_call_name(c.as_ref()));
+
+            match func.as_str() {
+                "get_route" | "post_route" | "put_route" | "patch_route" | "delete_route" => {
+                    let method = func.trim_end_matches("_route").to_uppercase();
+                    if let Some(path) = strings.first() {
+                        routes.push((method, path.clone(), handler));
+                    }
+                }
+                "route" if strings.len() >= 2 => {
+                    routes.push((strings[0].clone(), strings[1].clone(), handler));
+                }
+                _ => {}
+            }
+        }
+    }
+    for child in &node.children {
+        collect_routes(child, routes);
+    }
+}
+
+fn extract_string_literal(node: &mq_lang::CstNode) -> Option<String> {
+    if matches!(node.kind, mq_lang::CstNodeKind::Literal) {
+        node.token.as_ref().and_then(|t| {
+            if let mq_lang::TokenKind::StringLiteral(s) = &t.kind {
+                Some(s.to_string())
+            } else {
+                None
+            }
+        })
+    } else {
+        None
+    }
+}
+
+fn find_first_call_name(node: &mq_lang::CstNode) -> Option<String> {
+    for child in &node.children {
+        if matches!(child.kind, mq_lang::CstNodeKind::Call) {
+            return child.token.as_ref().map(|t| t.to_string());
+        }
+        if let Some(name) = find_first_call_name(child) {
+            return Some(name);
+        }
+    }
+    None
 }
 
 /// Build an OpenAPI 3.0 JSON value from the parsed route entries.
@@ -495,9 +558,11 @@ mod tests {
     #[test]
     fn test_extract_multiple_routes() {
         let script = concat!(
-            "http::get_route(r, \"/a\", fn(r): h_a(r);)\n",
-            "http::post_route(r, \"/b\", fn(r): h_b(r);)\n",
-            "http::delete_route(r, \"/c\", fn(r): h_c(r);)",
+            "http::dispatch(req, [\n",
+            "  fn(r): http::get_route(r, \"/a\", fn(r): h_a(r););,\n",
+            "  fn(r): http::post_route(r, \"/b\", fn(r): h_b(r););,\n",
+            "  fn(r): http::delete_route(r, \"/c\", fn(r): h_c(r););,\n",
+            "])",
         );
         let routes = extract_routes(script);
         assert_eq!(routes.len(), 3);

@@ -18,7 +18,6 @@ axum-server = {version = "0.7", features = ["tls-rustls"]}
 clap = {version = "4.6.0", features = ["derive", "env"]}
 miette = "7.6.0"
 mq-lang = {version = "0.5.25", features = ["cst", "sync", "ast-json"]}
-regex = "1"
 mq-markdown = {version = "0.5.25", features = ["html-to-markdown", "json"]}
 notify = "6"
 opentelemetry = "0.31"
