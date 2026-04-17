@@ -245,10 +245,8 @@ fn collect_routes(node: &mq_lang::CstNode, routes: &mut Vec<(String, String, Opt
                         routes.push((method, path.clone(), handler));
                     }
                 }
-                "route" => {
-                    if strings.len() >= 2 {
-                        routes.push((strings[0].clone(), strings[1].clone(), handler));
-                    }
+                "route" if strings.len() >= 2 => {
+                    routes.push((strings[0].clone(), strings[1].clone(), handler));
                 }
                 _ => {}
             }
