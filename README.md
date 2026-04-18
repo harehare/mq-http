@@ -8,6 +8,9 @@
 
 A lightweight HTTP server that executes [mq](https://mqlang.org/) scripts for each request.
 
+[![ci](https://github.com/harehare/mq-http/actions/workflows/ci.yml/badge.svg)](https://github.com/harehare/mq-http/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/mq-http)](https://crates.io/crates/mq-http)
+
 ## Installation
 
 ### Using the Installation Script (Recommended)
@@ -285,20 +288,54 @@ Arguments:
   [SCRIPT]  Path to the mq script
 
 Options:
-  -c <COMMAND>              Execute mq script from string
-      --stdin               Read the mq script from stdin
-  -p, --port <PORT>         Port to listen on [default: 3000]
-  -a, --addr <ADDR>         Bind address [default: 127.0.0.1]
-  -F, --format <FORMAT>     Default output format (markdown, html, text, json) [default: markdown]
-  -L, --directory <DIR>     Search modules from the directory
-      --args <NAME> <VALUE> Set a named string value
-      --rawfile <NAME> <FILE> Set a named value from file contents
-  -r, --reload              Hot-reload script on file change
-      --socket <PATH>       Listen on a Unix domain socket (Unix only; mutually exclusive with --port/--addr)
-      --tls-cert <FILE>     Path to TLS certificate file (PEM)
-      --tls-key <FILE>      Path to TLS private key file (PEM)
-      --otel-endpoint <URL> OpenTelemetry OTLP endpoint
-  -h, --help                Print help
+  -c, --command <COMMAND>
+          Execute mq script from string
+  -p, --port <PORT>
+          Port to listen on [default: 3000]
+  -a, --addr <ADDR>
+          Bind address [default: 127.0.0.1]
+  -F, --format <FORMAT>
+          Default output format (markdown, html, text, json) [default: markdown]
+  -L, --directory <MODULE_DIRECTORIES>
+          Search modules from the directory
+      --args <NAME> <VALUE>
+          Sets string that can be referenced at runtime
+      --rawfile <NAME> <FILE>
+          Sets file contents that can be referenced at runtime
+  -r, --reload
+          Automatically reload the script when it changes
+      --otel-endpoint <OTEL_ENDPOINT>
+          OpenTelemetry OTLP endpoint (e.g., http://localhost:4318) [env: OTEL_EXPORTER_OTLP_ENDPOINT=]
+      --otel-service-name <OTEL_SERVICE_NAME>
+          OpenTelemetry service name [env: OTEL_SERVICE_NAME=] [default: mq-http]
+      --tls-cert <TLS_CERT>
+          Path to TLS certificate file (PEM)
+      --tls-key <TLS_KEY>
+          Path to TLS private key file (PEM)
+      --stdin
+          Read the mq script from stdin
+      --docs
+          Enable /_docs (Swagger UI) and /_openapi.json endpoints
+      --docs-title <DOCS_TITLE>
+          API title shown in Swagger UI (requires --docs) [default: API]
+      --docs-version <DOCS_VERSION>
+          API version shown in Swagger UI (requires --docs) [default: 0.1.0]
+      --cors-origins <CORS_ORIGINS>
+          Allowed CORS origins (comma-separated). Use '*' to allow all origins
+      --timeout <TIMEOUT>
+          Request timeout in seconds
+      --rate-limit <RATE_LIMIT>
+          Rate limit: max requests per second per IP
+      --api-key <API_KEY>
+          Required API key (via X-Api-Key header or Authorization: Bearer <key>) [env: MQ_HTTP_API_KEY=]
+      --basic-auth <BASIC_AUTH>
+          Required Basic auth credentials in user:password format [env: MQ_HTTP_BASIC_AUTH=]
+      --request-id
+          Attach X-Request-Id to every response
+      --socket <SOCKET>
+          Path to a Unix domain socket to listen on (mutually exclusive with --port/--addr)
+  -h, --help
+          Print help
 ```
 
 ## Environment Variables
