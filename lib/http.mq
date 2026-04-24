@@ -174,3 +174,50 @@ def dispatch(r, handlers):
     end
   | if (is_none(result)): not_found() else: result
 end
+
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
+
+# Escape HTML entities in a string
+def escape_html(s):
+  to_string(s)
+  | replace("&", "&amp;")
+  | replace("<", "&lt;")
+  | replace(">", "&gt;")
+  | replace("\"", "&quot;")
+  | replace("'", "&#39;")
+end
+
+# Simple, secure template engine.
+# Replaces {{key}} with HTML-escaped value from data,
+# and {{{key}}} with raw value from data.
+# One-pass replacement to prevent template injection.
+def render(template, data):
+  let ks = keys(data)
+  | var i = 0
+  | var result = template
+  | var placeholders = {}
+  | while (i < len(ks)):
+      let k = ks[i]
+      | let v = data[k]
+      | let escaped_v = escape_html(v)
+      | let raw_v = to_string(v)
+      | let p_esc = "\x00ESC" + to_string(i) + "\x00"
+      | let p_raw = "\x00RAW" + to_string(i) + "\x00"
+      | result = replace(result, "{{{" + k + "}}}", p_raw)
+      | result = replace(result, "{{" + k + "}}", p_esc)
+      | placeholders[p_esc] = escaped_v
+      | placeholders[p_raw] = raw_v
+      | i += 1
+    end
+  | var p_ks = keys(placeholders)
+  | var j = 0
+  | while (j < len(p_ks)):
+      let pk = p_ks[j]
+      | result = replace(result, pk, placeholders[pk])
+      | j += 1
+    end
+  | result
+end
+

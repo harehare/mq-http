@@ -97,7 +97,7 @@ async fn main() -> Result<()> {
     let addr = std::env::var("MQ_HTTP_ADDR").unwrap_or_else(|_| args.addr.clone());
 
     let content = load_script_content(&args)?;
-    let script_content = Arc::new(RwLock::new(Some(content)));
+    let script_content = Arc::new(RwLock::new(content));
 
     let rate_limiter = args.rate_limit.map(RateLimiter::new);
 
@@ -269,11 +269,13 @@ fn init_tracer(
     Ok(provider)
 }
 
-fn load_script_content(args: &Args) -> Result<String> {
+fn load_script_content(args: &Args) -> Result<Option<String>> {
     if let Some(command) = &args.command {
-        Ok(command.clone())
+        Ok(Some(command.clone()))
     } else if let Some(script_path) = &args.script {
-        std::fs::read_to_string(script_path).into_diagnostic()
+        std::fs::read_to_string(script_path)
+            .into_diagnostic()
+            .map(Some)
     } else if args.stdin || is_stdin_piped() {
         use std::io::Read;
         let mut content = String::new();
@@ -283,12 +285,10 @@ fn load_script_content(args: &Args) -> Result<String> {
         if content.trim().is_empty() {
             Err(miette::miette!("No script provided via stdin"))
         } else {
-            Ok(content)
+            Ok(Some(content))
         }
     } else {
-        Err(miette::miette!(
-            "No script provided. Use a script file path, -c 'script', or pipe a script via stdin"
-        ))
+        Ok(None)
     }
 }
 
