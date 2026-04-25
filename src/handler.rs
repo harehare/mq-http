@@ -5,14 +5,13 @@ use crate::state::AppState;
 use axum::{
     body::Bytes,
     extract::{ConnectInfo, Query, State},
-    http::{HeaderMap, Method, StatusCode, Uri, Version, header, request::Parts},
-    response::{Html, IntoResponse, Response},
+    http::{HeaderMap, Method, StatusCode, Uri, Version, request::Parts},
+    response::{IntoResponse, Response},
 };
 use mq_lang::RuntimeValue;
 use std::collections::BTreeMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Extracts the remote address from the connection.
