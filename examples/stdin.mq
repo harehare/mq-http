@@ -14,7 +14,7 @@
 #
 # --- Heredoc ---
 #   mq-http <<'EOF'
-#   http::json_ok({"path": req["path"], "method": req["method"]})
+#   h::json_ok({"path": req["path"], "method": req["method"]})
 #   EOF
 #
 # The server auto-detects a piped stdin (non-TTY) and reads the script from it.
@@ -23,7 +23,7 @@
 # This file itself is a valid handler — run it normally:
 #   mq-http examples/stdin.mq
 
-http::json_ok({
+h::json_ok({
   "method":  req["method"],
   "path":    req["path"],
   "query":   req["query"],

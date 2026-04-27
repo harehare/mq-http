@@ -54,10 +54,10 @@ cargo build --release
 mq-http script.mq
 
 # Run with an inline script
-mq-http -c 'http::json_ok({"hello": "world"})'
+mq-http -c 'h::json_ok({"hello": "world"})'
 
 # Pipe a script from stdin
-echo 'http::ok("hello")' | mq-http
+echo 'h::ok("hello")' | mq-http
 
 # Read from stdin explicitly
 mq-http --stdin < script.mq
@@ -76,112 +76,112 @@ mq-http --reload script.mq
 
 Every script has access to a `req` variable with the following fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `method` | string | HTTP method (`GET`, `POST`, …) |
-| `path` | string | Request path (e.g. `/hello`) |
-| `uri` | string | Full URI |
-| `scheme` | string | `http` or `https` |
-| `version` | string | HTTP version |
-| `remote_addr` | string | Client IP and port |
-| `query` | dict | Query parameters |
-| `headers` | dict | Request headers (lowercase keys) |
-| `cookies` | dict | Parsed cookies |
-| `body` | string / dict | Body — parsed automatically for JSON, form, YAML, TOML |
+| Field         | Type          | Description                                            |
+| ------------- | ------------- | ------------------------------------------------------ |
+| `method`      | string        | HTTP method (`GET`, `POST`, …)                         |
+| `path`        | string        | Request path (e.g. `/hello`)                           |
+| `uri`         | string        | Full URI                                               |
+| `scheme`      | string        | `http` or `https`                                      |
+| `version`     | string        | HTTP version                                           |
+| `remote_addr` | string        | Client IP and port                                     |
+| `query`       | dict          | Query parameters                                       |
+| `headers`     | dict          | Request headers (lowercase keys)                       |
+| `cookies`     | dict          | Parsed cookies                                         |
+| `body`        | string / dict | Body — parsed automatically for JSON, form, YAML, TOML |
 
 ## Built-in `http` Module
 
-The `http` module is embedded in the binary and available in every script as `http::*` — no imports needed.
+The `http` module is embedded in the binary and available in every script as `h::*` — no imports needed.
 
 ### Response builders
 
-| Function | Status | Description |
-|----------|--------|-------------|
-| `http::ok(body)` | 200 | Plain response |
-| `http::created(body)` | 201 | |
-| `http::no_content()` | 204 | |
-| `http::bad_request(msg)` | 400 | |
-| `http::not_found()` | 404 | |
-| `http::method_not_allowed()` | 405 | |
-| `http::internal_error(msg)` | 500 | |
-| `http::json_ok(body)` | 200 | `application/json` |
-| `http::json_created(body)` | 201 | `application/json` |
-| `http::json_error(status, msg)` | — | `{"error": msg}` |
-| `http::html_ok(body)` | 200 | `text/html` |
-| `http::json_response(status, body)` | — | `application/json` with custom status |
+| Function                         | Status | Description                           |
+| -------------------------------- | ------ | ------------------------------------- |
+| `h::ok(body)`                    | 200    | Plain response                        |
+| `h::created(body)`               | 201    |                                       |
+| `h::no_content()`                | 204    |                                       |
+| `h::bad_request(msg)`            | 400    |                                       |
+| `h::not_found()`                 | 404    |                                       |
+| `h::method_not_allowed()`        | 405    |                                       |
+| `h::internal_error(msg)`         | 500    |                                       |
+| `h::json_ok(body)`               | 200    | `application/json`                    |
+| `h::json_created(body)`          | 201    | `application/json`                    |
+| `h::json_error(status, msg)`     | —      | `{"error": msg}`                      |
+| `h::html_ok(body)`               | 200    | `text/html`                           |
+| `h::json_response(status, body)` | —      | `application/json` with custom status |
 
 ### Request helpers
 
-| Function | Description |
-|----------|-------------|
-| `http::query_param(req, name, default)` | Get a query parameter with fallback |
-| `http::req_header(req, name)` | Get a request header by lowercase name |
-| `http::is_get(req)` / `http::is_post(req)` / … | Method predicates |
+| Function                                 | Description                            |
+| ---------------------------------------- | -------------------------------------- |
+| `h::query_param(req, name, default)`     | Get a query parameter with fallback    |
+| `h::req_header(req, name)`               | Get a request header by lowercase name |
+| `h::is_get(req)` / `h::is_post(req)` / … | Method predicates                      |
 
 ### Router
 
-| Function | Description |
-|----------|-------------|
-| `http::route(req, method, path, handler)` | Match method + exact path |
-| `http::route_prefix(req, method, prefix, handler)` | Match method + path prefix |
-| `http::get_route(req, path, handler)` | Shorthand for `GET` |
-| `http::post_route(req, path, handler)` | Shorthand for `POST` |
-| `http::put_route(req, path, handler)` | Shorthand for `PUT` |
-| `http::patch_route(req, path, handler)` | Shorthand for `PATCH` |
-| `http::delete_route(req, path, handler)` | Shorthand for `DELETE` |
-| `http::dispatch(req, handlers)` | Try handlers in order; falls back to 404 |
-| `http::path_eq(req, path)` | Exact path match predicate |
-| `http::path_prefix(req, prefix)` | Prefix match predicate |
-| `http::path_segments(req)` | Split path into `["a", "b", "c"]` |
+| Function                                        | Description                              |
+| ----------------------------------------------- | ---------------------------------------- |
+| `h::route(req, method, path, handler)`          | Match method + exact path                |
+| `h::route_prefix(req, method, prefix, handler)` | Match method + path prefix               |
+| `h::get_route(req, path, handler)`              | Shorthand for `GET`                      |
+| `h::post_route(req, path, handler)`             | Shorthand for `POST`                     |
+| `h::put_route(req, path, handler)`              | Shorthand for `PUT`                      |
+| `h::patch_route(req, path, handler)`            | Shorthand for `PATCH`                    |
+| `h::delete_route(req, path, handler)`           | Shorthand for `DELETE`                   |
+| `h::dispatch(req, handlers)`                    | Try handlers in order; falls back to 404 |
+| `h::path_eq(req, path)`                         | Exact path match predicate               |
+| `h::path_prefix(req, prefix)`                   | Prefix match predicate                   |
+| `h::path_segments(req)`                         | Split path into `["a", "b", "c"]`        |
 
 ### Server-Sent Events
 
-| Function | Description |
-|----------|-------------|
-| `http::sse(events)` | Return an SSE stream (`text/event-stream`) |
-| `http::sse_event(data)` | Build a plain data event |
-| `http::sse_event_named(event, data)` | Build a named event with an event type |
+| Function                          | Description                                |
+| --------------------------------- | ------------------------------------------ |
+| `h::sse(events)`                  | Return an SSE stream (`text/event-stream`) |
+| `h::sse_event(data)`              | Build a plain data event                   |
+| `h::sse_event_named(event, data)` | Build a named event with an event type     |
 
 ## Script Examples
 
 ### Simple response
 
 ```mq
-http::ok("Hello from mq-http!")
+h::ok("Hello from mq-http!")
 ```
 
 ### JSON response
 
 ```mq
-http::json_ok({"name": "mq-http", "version": "0.1.0"})
+h::json_ok({"name": "mq-http", "version": "0.1.0"})
 ```
 
 ### Reading query parameters
 
 ```mq
-let name = http::query_param(req, "name", "world")
-| http::json_ok({"message": "Hello, " + name + "!"})
+let name = h::query_param(req, "name", "world")
+| h::json_ok({"message": "Hello, " + name + "!"})
 ```
 
 ### Path-based routing with `dispatch`
 
 ```mq
 def handle_root(_):
-  http::html_ok("<h1>Welcome</h1>")
+  h::html_ok("<h1>Welcome</h1>")
 end
 
 def handle_health(_):
-  http::json_ok({"status": "ok"})
+  h::json_ok({"status": "ok"})
 end
 
 def handle_echo(r):
-  http::json_ok(r["body"])
+  h::json_ok(r["body"])
 end
 
-http::dispatch(req, [
-  fn(r): http::get_route(r,  "/",       fn(r): handle_root(r););,
-  fn(r): http::get_route(r,  "/health", fn(r): handle_health(r););,
-  fn(r): http::post_route(r, "/echo",   fn(r): handle_echo(r););,
+h::dispatch(req, [
+  fn(r): h::get_route(r,  "/",       fn(r): handle_root(r););,
+  fn(r): h::get_route(r,  "/health", fn(r): handle_health(r););,
+  fn(r): h::post_route(r, "/echo",   fn(r): handle_echo(r););,
 ])
 ```
 
@@ -203,7 +203,7 @@ If the script evaluates to a function, it is called with `req`:
 
 ```mq
 fn(r):
-  http::json_ok({"path": r["path"], "method": r["method"]})
+  h::json_ok({"path": r["path"], "method": r["method"]})
 end
 ```
 
@@ -211,25 +211,25 @@ end
 
 ```bash
 # Pipe a script directly
-echo 'http::json_ok({"path": req["path"]})' | mq-http
+echo 'h::json_ok({"path": req["path"]})' | mq-http
 
 # Heredoc
 mq-http <<'EOF'
-http::dispatch(req, [
-  fn(r): http::get_route(r, "/", fn(_): http::ok("hi"););,
+h::dispatch(req, [
+  fn(r): h::get_route(r, "/", fn(_): h::ok("hi"););,
 ])
 EOF
 ```
 
 ### Server-Sent Events
 
-Return an SSE stream from any route by calling `http::sse(events)`:
+Return an SSE stream from any route by calling `h::sse(events)`:
 
 ```mq
-http::sse([
-  http::sse_event("hello"),
-  http::sse_event("world"),
-  http::sse_event_named("done", "finished"),
+h::sse([
+  h::sse_event("hello"),
+  h::sse_event("world"),
+  h::sse_event_named("done", "finished"),
 ])
 ```
 
@@ -237,9 +237,9 @@ Named events work with `EventSource.addEventListener("done", ...)` in the browse
 Each event can also carry JSON data:
 
 ```mq
-http::sse([
-  http::sse_event({"user": "alice", "score": 42}),
-  http::sse_event({"user": "bob",   "score": 17}),
+h::sse([
+  h::sse_event({"user": "alice", "score": 42}),
+  h::sse_event({"user": "bob",   "score": 17}),
 ])
 ```
 
@@ -248,7 +248,7 @@ http::sse([
 Start the server on a Unix socket instead of a TCP port:
 
 ```bash
-mq-http --socket /tmp/mq.sock -c 'http::json_ok({"ok": true})'
+mq-http --socket /tmp/mq.sock -c 'h::json_ok({"ok": true})'
 
 # Query it with curl
 curl --unix-socket /tmp/mq.sock http://localhost/
@@ -258,12 +258,12 @@ curl --unix-socket /tmp/mq.sock http://localhost/
 
 Controls how the script's return value is serialised into the HTTP response.
 
-| Flag | `string` response | `Markdown` response |
-|------|-------------------|---------------------|
-| `markdown` *(default)* | `text/markdown` | `text/markdown` |
-| `html` | `text/html` | `text/html` — rendered to HTML |
-| `text` | `text/plain` | `text/plain` |
-| `json` | `application/json` | — |
+| Flag                   | `string` response  | `Markdown` response            |
+| ---------------------- | ------------------ | ------------------------------ |
+| `markdown` *(default)* | `text/markdown`    | `text/markdown`                |
+| `html`                 | `text/html`        | `text/html` — rendered to HTML |
+| `text`                 | `text/plain`       | `text/plain`                   |
+| `json`                 | `application/json` | —                              |
 
 `dict` and `array` values are always returned as `application/json` regardless of `-F`.
 
@@ -271,13 +271,13 @@ Controls how the script's return value is serialised into the HTTP response.
 
 Request bodies are parsed automatically based on `Content-Type`:
 
-| Content-Type | Parsed as |
-|--------------|-----------|
-| `application/json` | dict / array |
-| `application/x-www-form-urlencoded` | dict |
-| `application/yaml` / `text/yaml` | dict |
-| `application/toml` | dict |
-| anything else | string |
+| Content-Type                        | Parsed as    |
+| ----------------------------------- | ------------ |
+| `application/json`                  | dict / array |
+| `application/x-www-form-urlencoded` | dict         |
+| `application/yaml` / `text/yaml`    | dict         |
+| `application/toml`                  | dict         |
+| anything else                       | string       |
 
 ## Options
 
@@ -340,12 +340,12 @@ Options:
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `MQ_HTTP_PORT` | Override `--port` |
-| `MQ_HTTP_ADDR` | Override `--addr` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Override `--otel-endpoint` |
-| `OTEL_SERVICE_NAME` | Override `--otel-service-name` |
+| Variable                      | Description                    |
+| ----------------------------- | ------------------------------ |
+| `MQ_HTTP_PORT`                | Override `--port`              |
+| `MQ_HTTP_ADDR`                | Override `--addr`              |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Override `--otel-endpoint`     |
+| `OTEL_SERVICE_NAME`           | Override `--otel-service-name` |
 
 ## Acknowledgements
 

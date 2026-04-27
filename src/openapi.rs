@@ -1,6 +1,6 @@
 /// OpenAPI 3.0 spec generation from mq scripts.
 ///
-/// Extracts route information from `http::get_route` / `http::post_route` etc. calls
+/// Extracts route information from `h::get_route` / `h::post_route` etc. calls
 /// and combines them with doc-comment annotations written above `def` functions.
 ///
 /// Annotation format (lines starting with `# @` immediately before a `def`):
@@ -180,8 +180,8 @@ fn build_annotation(lines: &[String]) -> FuncAnnotation {
 /// Extract `(METHOD, path, Option<handler_name>)` tuples from a mq script.
 ///
 /// Handles:
-/// - `http::get_route(r, "/path", fn(r): handler(r);)`
-/// - `http::route(r, "GET", "/path", fn(r): handler(r);)`
+/// - `h::get_route(r, "/path", fn(r): handler(r);)`
+/// - `h::route(r, "GET", "/path", fn(r): handler(r);)`
 pub(crate) fn extract_routes(content: &str) -> Vec<(String, String, Option<String>)> {
     let preprocessed = inject_pipe_after_top_level_end(content);
     let (nodes, _) = mq_lang::parse_recovery(&preprocessed);
@@ -406,7 +406,7 @@ mod tests {
 
     #[rstest]
     #[case(
-        "# @summary Health check\ndef handle_health(_):\n  http::ok(\"\")\nend",
+        "# @summary Health check\ndef handle_health(_):\n  h::ok(\"\")\nend",
         "handle_health",
         Some("Health check")
     )]
@@ -523,11 +523,11 @@ mod tests {
     // ---- extract_routes ----------------------------------------------------
 
     #[rstest]
-    #[case("http::get_route(r, \"/\", fn(r): handle(r);)", "GET", "/")]
-    #[case("http::post_route(r, \"/items\", fn(r): h(r);)", "POST", "/items")]
-    #[case("http::put_route(r, \"/x\", fn(r): h(r);)", "PUT", "/x")]
-    #[case("http::patch_route(r, \"/y\", fn(r): h(r);)", "PATCH", "/y")]
-    #[case("http::delete_route(r, \"/z\", fn(r): h(r);)", "DELETE", "/z")]
+    #[case("h::get_route(r, \"/\", fn(r): handle(r);)", "GET", "/")]
+    #[case("h::post_route(r, \"/items\", fn(r): h(r);)", "POST", "/items")]
+    #[case("h::put_route(r, \"/x\", fn(r): h(r);)", "PUT", "/x")]
+    #[case("h::patch_route(r, \"/y\", fn(r): h(r);)", "PATCH", "/y")]
+    #[case("h::delete_route(r, \"/z\", fn(r): h(r);)", "DELETE", "/z")]
     fn test_extract_method_routes(
         #[case] script: &str,
         #[case] expected_method: &str,
@@ -541,14 +541,14 @@ mod tests {
 
     #[test]
     fn test_extract_route_handler_name() {
-        let script = "http::get_route(r, \"/health\", fn(r): handle_health(r);)";
+        let script = "h::get_route(r, \"/health\", fn(r): handle_health(r);)";
         let routes = extract_routes(script);
         assert_eq!(routes[0].2.as_deref(), Some("handle_health"));
     }
 
     #[test]
     fn test_extract_generic_route() {
-        let script = r#"http::route(r, "DELETE", "/items", fn(r): del(r);)"#;
+        let script = r#"h::route(r, "DELETE", "/items", fn(r): del(r);)"#;
         let routes = extract_routes(script);
         assert_eq!(routes.len(), 1);
         assert_eq!(routes[0].0, "DELETE");
@@ -558,10 +558,10 @@ mod tests {
     #[test]
     fn test_extract_multiple_routes() {
         let script = concat!(
-            "http::dispatch(req, [\n",
-            "  fn(r): http::get_route(r, \"/a\", fn(r): h_a(r););,\n",
-            "  fn(r): http::post_route(r, \"/b\", fn(r): h_b(r););,\n",
-            "  fn(r): http::delete_route(r, \"/c\", fn(r): h_c(r););,\n",
+            "h::dispatch(req, [\n",
+            "  fn(r): h::get_route(r, \"/a\", fn(r): h_a(r););,\n",
+            "  fn(r): h::post_route(r, \"/b\", fn(r): h_b(r););,\n",
+            "  fn(r): h::delete_route(r, \"/c\", fn(r): h_c(r););,\n",
             "])",
         );
         let routes = extract_routes(script);
@@ -570,7 +570,7 @@ mod tests {
 
     #[test]
     fn test_extract_no_routes() {
-        assert!(extract_routes("def handle(_):\n  http::ok(\"\")\nend").is_empty());
+        assert!(extract_routes("def handle(_):\n  h::ok(\"\")\nend").is_empty());
     }
 
     // ---- parse_script (integration) ----------------------------------------
@@ -581,11 +581,11 @@ mod tests {
             "# @summary Health check\n",
             "# @tag health\n",
             "def handle_health(_):\n",
-            "  http::json_ok({\"status\": \"ok\"})\n",
+            "  h::json_ok({\"status\": \"ok\"})\n",
             "end\n",
             "\n",
-            "http::dispatch(req, [\n",
-            "  fn(r): http::get_route(r, \"/health\", fn(r): handle_health(r););,\n",
+            "h::dispatch(req, [\n",
+            "  fn(r): h::get_route(r, \"/health\", fn(r): handle_health(r););,\n",
             "])",
         );
         let routes = parse_script(script);
@@ -601,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_parse_script_route_without_annotation() {
-        let script = "http::get_route(r, \"/bare\", fn(r): h(r);)";
+        let script = "h::get_route(r, \"/bare\", fn(r): h(r);)";
         let routes = parse_script(script);
         assert_eq!(routes.len(), 1);
         assert!(routes[0].annotation.summary.is_none());
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_openapi_json_default_response() {
-        let script = "http::get_route(r, \"/ping\", fn(r): h(r);)";
+        let script = "h::get_route(r, \"/ping\", fn(r): h(r);)";
         let routes = parse_script(script);
         let spec = build_openapi_json("T", "1", &routes);
         assert_eq!(
@@ -639,7 +639,7 @@ mod tests {
             "# @response 200 application/json \"Item list\"\n",
             "# @response 400 \"Bad request\"\n",
             "def handle_list(_):\nend\n",
-            "http::get_route(r, \"/items\", fn(r): handle_list(r);)",
+            "h::get_route(r, \"/items\", fn(r): handle_list(r);)",
         );
         let routes = parse_script(script);
         let spec = build_openapi_json("T", "1", &routes);
@@ -665,7 +665,7 @@ mod tests {
         #[case] expected_json_key: &str,
     ) {
         let method_lower = script_method_keyword.to_lowercase();
-        let script = format!("http::{method_lower}_route(r, \"/x\", fn(r): h(r);)");
+        let script = format!("h::{method_lower}_route(r, \"/x\", fn(r): h(r);)");
         let routes = parse_script(&script);
         let spec = build_openapi_json("T", "1", &routes);
         assert!(spec["paths"]["/x"][expected_json_key].is_object());

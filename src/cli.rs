@@ -97,6 +97,12 @@ pub struct Args {
     #[arg(long)]
     pub request_id: bool,
 
+    /// Serve static files: MOUNT_PATH:FILE_OR_DIR (repeatable).
+    /// Directories are served recursively; single files are served at the exact mount path.
+    /// Example: --static /assets:./public --static /bundle.js:./dist/bundle.js
+    #[arg(long = "static", value_name = "MOUNT:PATH")]
+    pub static_mounts: Option<Vec<String>>,
+
     /// Path to a Unix domain socket to listen on (mutually exclusive with --port/--addr)
     #[cfg(unix)]
     #[arg(long, conflicts_with_all = ["port", "addr", "tls_cert", "tls_key"])]
