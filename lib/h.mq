@@ -37,6 +37,30 @@ def internal_error(msg):
   {"status": 500, "body": msg}
 end
 
+def unauthorized(msg):
+  {"status": 401, "body": msg}
+end
+
+def forbidden(msg):
+  {"status": 403, "body": msg}
+end
+
+# ---------------------------------------------------------------------------
+# Redirection builders
+# ---------------------------------------------------------------------------
+
+def redirect(url):
+  {"status": 302, "headers": {"location": url}}
+end
+
+def redirect_permanent(url):
+  {"status": 301, "headers": {"location": url}}
+end
+
+def see_other(url):
+  {"status": 303, "headers": {"location": url}}
+end
+
 # ---------------------------------------------------------------------------
 # JSON response builders
 # ---------------------------------------------------------------------------
@@ -55,6 +79,29 @@ end
 
 def json_error(status, msg):
   json_response(status, {"error": msg})
+end
+
+# Add or update a header in the response object
+def with_header(res, name, value):
+  var r = res
+  | var headers = r["headers"]
+  | if (is_none(headers)):
+      headers = {}
+  | headers[name] = value
+  | r["headers"] = headers
+  | r
+end
+
+# Add or update a cookie in the response object
+# value can be a string or a dict with options
+def with_cookie(res, name, value):
+  var r = res
+  | var cookies = r["cookies"]
+  | if (is_none(cookies)):
+      cookies = {}
+  | cookies[name] = value
+  | r["cookies"] = cookies
+  | r
 end
 
 # ---------------------------------------------------------------------------
