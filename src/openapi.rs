@@ -217,7 +217,7 @@ fn inject_pipe_after_top_level_end(content: &str) -> String {
 
 fn collect_routes(node: &mq_lang::CstNode, routes: &mut Vec<(String, String, Option<String>)>) {
     if matches!(node.kind, mq_lang::CstNodeKind::QualifiedAccess)
-        && node.token.as_ref().map(|t| t.to_string()).as_deref() == Some("http")
+        && node.token.as_ref().map(|t| t.to_string()).as_deref() == Some("h")
     {
         let func_name = node
             .children
