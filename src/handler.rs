@@ -69,10 +69,10 @@ fn run_script(state: &AppState, user_script: &str, req_value: RuntimeValue) -> R
         tracing::error!("Failed to load raw files: {:?}", e);
     }
 
-    // Prepend the built-in http module so users can call http::ok(), http::json_ok(), etc.
+    // Prepend the built-in http module so users can call h::ok(), h::json_ok(), etc.
     // `let req = .` makes the request available as a named variable in scripts.
     let full_script = format!(
-        "module http:\n{}\nend\n| let req = . | {}",
+        "module h:\n{}\nend\n| let req = . | {}",
         HTTP_MODULE, user_script
     );
 
@@ -111,7 +111,7 @@ fn call_function_handler(state: &AppState, user_script: &str, req_value: Runtime
 
     // Wrap script in parens and invoke it with req.
     let call_code = format!(
-        "module http:\n{}\nend\n| let req = . | let _h = ({}) | _h(req)",
+        "module h:\n{}\nend\n| let req = . | let _h = ({}) | _h(req)",
         HTTP_MODULE, user_script
     );
 

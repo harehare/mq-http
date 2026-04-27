@@ -27,6 +27,7 @@ use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
     limit::RequestBodyLimitLayer,
+    services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -129,21 +130,34 @@ async fn main() -> Result<()> {
         base
     };
 
+    let app = if let Some(entries) = &args.static_mounts {
+        entries
+            .iter()
+            .fold(app, |router, entry| match entry.split_once(':') {
+                Some((mount, path)) => {
+                    let p = std::path::Path::new(path);
+                    if p.is_file() {
+                        router.route_service(mount, ServeFile::new(p))
+                    } else {
+                        router.nest_service(mount, ServeDir::new(p))
+                    }
+                }
+                None => router.nest_service("/static", ServeDir::new(entry.as_str())),
+            })
+    } else {
+        app
+    };
+
     let cors = build_cors_layer(args.cors_origins.as_deref());
 
     let app = app
-        // Innermost: body size limit applied before any user logic
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
-        // Combined custom middleware: request-id, rate limiting, auth, timeout
         .layer(axum_middleware::from_fn_with_state(
             state.clone(),
             middleware::middleware,
         ))
-        // CORS headers / preflight (runs before auth so OPTIONS isn't rejected)
         .layer(cors)
-        // Compress responses when the client sends Accept-Encoding
         .layer(CompressionLayer::new())
-        // Outermost: trace every request (sees final status after all layers)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -158,11 +172,9 @@ async fn main() -> Result<()> {
         return result;
     }
 
-    let socket_addr: SocketAddr = format!("{}:{}", addr, port).parse().into_diagnostic()?;
-
     let result = serve(
         app,
-        socket_addr,
+        format!("{}:{}", addr, port).parse().into_diagnostic()?,
         args.tls_cert.as_deref(),
         args.tls_key.as_deref(),
     )

@@ -13,7 +13,7 @@
 # curl -X POST http://localhost:3000/echo -d '{"msg":"hi"}' -H 'Content-Type: application/json'
 # curl http://localhost:3000/greet?name=Alice
 #
-# The http module is built into mq-http and always available as http::*
+# The http module is built into mq-http and always available as h::*
 #
 # ---------------------------------------------------------------------------
 # OpenAPI annotations
@@ -33,7 +33,7 @@
 # @tag pages
 # @response 200 text/html "HTML welcome page"
 def handle_root(_):
-  http::html_ok("<h1>mq-http API</h1><p>Try GET /health or POST /echo</p>")
+  h::html_ok("<h1>mq-http API</h1><p>Try GET /health or POST /echo</p>")
 end
 
 # @summary Health check
@@ -41,7 +41,7 @@ end
 # @tag health
 # @response 200 application/json "Service is healthy"
 def handle_health(_):
-  http::json_ok({"status": "ok"})
+  h::json_ok({"status": "ok"})
 end
 
 # @summary Echo the request body
@@ -49,7 +49,7 @@ end
 # @tag debug
 # @response 200 application/json "Echoed body"
 def handle_echo(r):
-  http::json_ok(r["body"])
+  h::json_ok(r["body"])
 end
 
 # @summary Greet a user by name
@@ -57,15 +57,15 @@ end
 # @param name query string false "Name to greet (defaults to 'world')"
 # @response 200 application/json "Greeting message"
 def handle_greet(r):
-  let name = http::query_param(r, "name", "world")
-  | http::json_ok({"message": "Hello, " + name + "!"})
+  let name = h::query_param(r, "name", "world")
+  | h::json_ok({"message": "Hello, " + name + "!"})
 end
 
 |
 
-http::dispatch(req, [
-  fn(r): http::get_route(r, "/", fn(r): handle_root(r););,
-  fn(r): http::post_route(r, "/echo", fn(r): handle_echo(r););,
-  fn(r): http::get_route(r, "/health", fn(r): handle_health(r););,
-  fn(r): http::get_route(r, "/greet", fn(r): handle_greet(r););,
+h::dispatch(req, [
+  fn(r): h::get_route(r, "/", fn(r): handle_root(r););,
+  fn(r): h::post_route(r, "/echo", fn(r): handle_echo(r););,
+  fn(r): h::get_route(r, "/health", fn(r): handle_health(r););,
+  fn(r): h::get_route(r, "/greet", fn(r): handle_greet(r););,
 ])

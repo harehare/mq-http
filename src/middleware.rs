@@ -244,6 +244,7 @@ mod tests {
             api_key: None,
             basic_auth: None,
             request_id: false,
+            static_mounts: None,
             #[cfg(unix)]
             socket: None,
         }
