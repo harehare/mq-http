@@ -56,7 +56,7 @@ pub fn runtime_value_to_response(value: RuntimeValue, default_format: &str) -> R
             _ => Html(s).into_response(),
         },
         RuntimeValue::Markdown(node, _) => {
-            let md = mq_markdown::Markdown::new(vec![node]);
+            let md = mq_markdown::Markdown::new(vec![(*node)]);
             match default_format {
                 "text" => md.to_string().into_response(),
                 "markdown" => Response::builder()
@@ -167,7 +167,7 @@ fn build_dict_response(
                 .body(ax_body::Body::from(s.clone()))
                 .unwrap_or_default(),
             RuntimeValue::Markdown(node, _) => {
-                let md = mq_markdown::Markdown::new(vec![node.clone()]);
+                let md = mq_markdown::Markdown::new(vec![(**node).clone()]);
                 let (content, content_type) = match default_format {
                     "text" => (md.to_string(), "text/plain; charset=utf-8"),
                     "markdown" => (md.to_string(), "text/markdown; charset=utf-8"),
