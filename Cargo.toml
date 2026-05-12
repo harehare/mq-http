@@ -19,7 +19,7 @@ clap = {version = "4.6.0", features = ["derive", "env"]}
 miette = {version ="7.6.0", features = ["fancy"]}
 mq-lang = {version = "0.5.29", features = ["cst", "sync", "ast-json"]}
 mq-markdown = {version = "0.5.29", features = ["html-to-markdown", "json"]}
-notify = "6"
+notify = "8"
 opentelemetry = "0.31"
 opentelemetry-otlp = {version = "0.31", features = ["http-proto", "reqwest-client"]}
 opentelemetry_sdk = {version = "0.31", features = ["rt-tokio"]}
