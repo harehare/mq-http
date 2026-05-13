@@ -32,6 +32,10 @@ use tower_http::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+#[cfg(feature = "use_mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 async fn swagger_ui_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     Html(openapi::swagger_ui_html(&state.args.docs_title))
 }
