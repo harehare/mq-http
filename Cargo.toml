@@ -23,7 +23,7 @@ notify = "8"
 mimalloc = {version = "0.1.48", optional = true}
 opentelemetry = "0.31"
 opentelemetry-otlp = {version = "0.31", features = ["http-proto", "reqwest-client"]}
-opentelemetry_sdk = {version = "0.31", features = ["rt-tokio"]}
+opentelemetry_sdk = {version = "0.32", features = ["rt-tokio"]}
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 serde_urlencoded = "0.7"
