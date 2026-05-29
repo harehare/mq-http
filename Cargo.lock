@@ -1584,7 +1584,7 @@ dependencies = [
 
 [[package]]
 name = "mq-http"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "axum",
  "axum-server",
