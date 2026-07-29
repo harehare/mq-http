@@ -42,6 +42,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ammonia"
+version = "4.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6d763210e2eb7670d1a5183a08bebefa3f97db2a738a684f2ce00bd49f681d"
+dependencies = [
+ "cssparser",
+ "html5ever",
+ "maplit",
+ "url",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -999,50 +1011,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "hcl-edit"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f641e65979f9c567246f13f9c64f7af41b3476e3171a63b10b36778af95b267b"
-dependencies = [
- "fnv",
- "hcl-primitives",
- "pratt",
- "vecmap-rs",
- "winnow",
-]
-
-[[package]]
-name = "hcl-primitives"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829a11d304c89e2cfe0dbb494a686bbe2b48ade17705c62cd1957b04aa4630f6"
-dependencies = [
- "itoa",
- "kstring",
- "ryu",
- "serde",
- "unicode-ident",
-]
-
-[[package]]
-name = "hcl-rs"
-version = "0.19.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "153fc72c1037f6933efe01c1c769235479e995fb82a799c5716dabad7375b671"
-dependencies = [
- "hcl-edit",
- "hcl-primitives",
- "indexmap",
- "itoa",
- "serde",
- "vecmap-rs",
-]
-
-[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "html-escape"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46c1ff2d1cbf39efe5af0900ced8a069b5e61557a17544eb0c4a50239937389e"
 
 [[package]]
 name = "html5ever"
@@ -1409,16 +1387,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kstring"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "558bf9508a558512042d3095138b1f7b8fe90c5467d94f9f1da28b3731c5dbd1"
-dependencies = [
- "serde",
- "static_assertions",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1480,6 +1448,12 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+
+[[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "markdown"
@@ -1618,7 +1592,7 @@ dependencies = [
  "miette",
  "mimalloc",
  "mq-lang",
- "mq-markdown",
+ "mq-markdown 0.6.5",
  "notify",
  "opentelemetry",
  "opentelemetry-otlp",
@@ -1638,22 +1612,24 @@ dependencies = [
 
 [[package]]
 name = "mq-lang"
-version = "0.6.5"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73c5f80180e33e9278a38894b864270f8cacc342a5586cbf7fd9c8e108aa07a8"
+checksum = "da001c23ebcc111f636fedf9f156a49e7d56de4ba5147bfdea31063501817764"
 dependencies = [
+ "ammonia",
  "base64",
  "chrono",
  "ciborium",
  "csv",
  "dirs",
  "getrandom 0.4.2",
- "hcl-rs",
+ "glob",
+ "html-escape",
  "itertools 0.15.0",
  "md5",
  "miette",
  "mq-macros",
- "mq-markdown",
+ "mq-markdown 0.7.0",
  "nom",
  "nom_locate",
  "percent-encoding",
@@ -1669,21 +1645,24 @@ dependencies = [
  "smallvec",
  "smol_str",
  "string-interner",
+ "strsim",
  "thiserror",
  "toml",
  "toon-format",
+ "unicode-width 0.2.2",
  "ureq",
  "url",
  "uuid",
  "web-sys",
+ "web-time",
  "yaml-rust2",
 ]
 
 [[package]]
 name = "mq-macros"
-version = "0.6.5"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5ad779e5b5fa43841cad4ce8eb88b58d32c34e26bdd92a1bc0d1048b1d96874"
+checksum = "14c3cce1c3b85e247aff09a2ee394dbdac76425a957ec8c9899bfa4fd55ff624"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1695,6 +1674,24 @@ name = "mq-markdown"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2494d260b43ba34a8243e1fe3f836776c1287638fa0e5e3347dca6a8dab869fd"
+dependencies = [
+ "ego-tree",
+ "itertools 0.15.0",
+ "markdown",
+ "miette",
+ "rustc-hash",
+ "scraper",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "smol_str",
+]
+
+[[package]]
+name = "mq-markdown"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d296714247c23a16b0890577c6e876fcdc1702964864b38c797aab20da009f57"
 dependencies = [
  "ego-tree",
  "itertools 0.15.0",
@@ -2001,12 +1998,6 @@ checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
 ]
-
-[[package]]
-name = "pratt"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17e0a4425d076f0718b820673a38fbf3747080c61017eeb0dd79bc7e472b8bb8"
 
 [[package]]
 name = "precomputed-hash"
@@ -2621,12 +2612,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
 name = "str_indices"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3234,15 +3219,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "vecmap-rs"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9758649b51083aa8008666f41c23f05abca1766aad4cc447b195dd83ef1297b"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "walkdir"
