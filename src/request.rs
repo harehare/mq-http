@@ -39,7 +39,7 @@ pub fn build_request_value(
     for (k, v) in params {
         query_dict.insert(Ident::new(&k), RuntimeValue::String(v));
     }
-    req_dict.insert(Ident::new("query"), RuntimeValue::Dict(query_dict));
+    req_dict.insert(Ident::new("query"), RuntimeValue::Dict(query_dict.into()));
 
     let mut headers_dict = BTreeMap::new();
     let mut cookies_dict = BTreeMap::new();
@@ -57,8 +57,14 @@ pub fn build_request_value(
             }
         }
     }
-    req_dict.insert(Ident::new("headers"), RuntimeValue::Dict(headers_dict));
-    req_dict.insert(Ident::new("cookies"), RuntimeValue::Dict(cookies_dict));
+    req_dict.insert(
+        Ident::new("headers"),
+        RuntimeValue::Dict(headers_dict.into()),
+    );
+    req_dict.insert(
+        Ident::new("cookies"),
+        RuntimeValue::Dict(cookies_dict.into()),
+    );
 
     let body = String::from_utf8_lossy(body_bytes).to_string();
     let content_type = headers
@@ -68,7 +74,7 @@ pub fn build_request_value(
 
     req_dict.insert(Ident::new("body"), parse_body(&body, content_type));
 
-    RuntimeValue::Dict(req_dict)
+    RuntimeValue::Dict(req_dict.into())
 }
 
 fn parse_body(body: &str, content_type: &str) -> RuntimeValue {
@@ -83,7 +89,7 @@ fn parse_body(body: &str, content_type: &str) -> RuntimeValue {
                 for (k, v) in m {
                     dict.insert(Ident::new(&k), RuntimeValue::String(v));
                 }
-                RuntimeValue::Dict(dict)
+                RuntimeValue::Dict(dict.into())
             })
             .unwrap_or_else(|_| RuntimeValue::String(body.to_string()))
     } else if content_type.contains("application/yaml") || content_type.contains("text/yaml") {
