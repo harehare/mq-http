@@ -30,7 +30,7 @@ serde_urlencoded = "0.7"
 tokio = {version = "1.52.3", features = ["full"]}
 toml = "1.1"
 tower-http = {version = "0.7.0", features = ["limit", "trace", "cors", "compression-full", "request-id", "fs"]}
-base64 = "0.22"
+base64 = "0.23"
 tracing = {version = "0.1.44"}
 tracing-opentelemetry = "0.33"
 tracing-subscriber = {version = "0.3.23", features = ["env-filter"]}
