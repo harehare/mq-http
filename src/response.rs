@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 /// Convert a `RuntimeValue` to a `serde_json::Value` for JSON serialization.
 pub fn runtime_value_to_json(value: &RuntimeValue) -> JsonValue {
     match value {
-        RuntimeValue::String(s) => JsonValue::String(s.clone()),
+        RuntimeValue::String(s) => JsonValue::String(s.to_string()),
         RuntimeValue::Number(n) => {
             let f = n.value();
             if f.fract() == 0.0 && f.abs() < 9007199254740992.0 {
@@ -45,18 +45,18 @@ pub fn runtime_value_to_response(value: RuntimeValue, default_format: &str) -> R
         RuntimeValue::String(s) => match default_format {
             "json" => Response::builder()
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(ax_body::Body::from(s))
+                .body(ax_body::Body::from(s.to_string()))
                 .unwrap_or_default(),
-            "text" => s.into_response(),
+            "text" => s.to_string().into_response(),
             // Return raw Markdown with text/markdown content type.
             "markdown" => Response::builder()
                 .header(header::CONTENT_TYPE, "text/markdown; charset=utf-8")
-                .body(ax_body::Body::from(s))
+                .body(ax_body::Body::from(s.to_string()))
                 .unwrap_or_default(),
-            _ => Html(s).into_response(),
+            _ => Html(s.to_string()).into_response(),
         },
         RuntimeValue::Markdown(node, _) => {
-            let md = mq_markdown::Markdown::new(vec![(*node)]);
+            let md = mq_markdown::Markdown::new(vec![(*node).clone()]);
             match default_format {
                 "text" => md.to_string().into_response(),
                 "markdown" => Response::builder()
@@ -89,16 +89,16 @@ fn build_sse_response(map: &BTreeMap<Ident, RuntimeValue>) -> Response {
                 if let RuntimeValue::Dict(m) = e {
                     if let Some(v) = m.get(&Ident::new("data")) {
                         let data = match v {
-                            RuntimeValue::String(s) => s.clone(),
+                            RuntimeValue::String(s) => s.to_string(),
                             _ => runtime_value_to_json(v).to_string(),
                         };
                         event = event.data(data);
                     }
                     if let Some(RuntimeValue::String(name)) = m.get(&Ident::new("event")) {
-                        event = event.event(name.clone());
+                        event = event.event(name.as_str());
                     }
                     if let Some(RuntimeValue::String(id)) = m.get(&Ident::new("id")) {
-                        event = event.id(id.clone());
+                        event = event.id(id.as_str());
                     }
                 } else {
                     event = event.data(e.to_string());
@@ -164,7 +164,7 @@ fn build_dict_response(
     match map.get(&Ident::new("body")) {
         Some(body) => match body {
             RuntimeValue::String(s) => response_builder
-                .body(ax_body::Body::from(s.clone()))
+                .body(ax_body::Body::from(s.to_string()))
                 .unwrap_or_default(),
             RuntimeValue::Markdown(node, _) => {
                 let md = mq_markdown::Markdown::new(vec![(**node).clone()]);
@@ -216,7 +216,7 @@ mod tests {
     // ---- runtime_value_to_json ---------------------------------------------
 
     #[rstest]
-    #[case(RuntimeValue::String("hello".into()),   json!("hello"))]
+    #[case(RuntimeValue::from("hello"),   json!("hello"))]
     #[case(RuntimeValue::Boolean(true),            json!(true))]
     #[case(RuntimeValue::Boolean(false),           json!(false))]
     fn test_to_json_primitives(#[case] value: RuntimeValue, #[case] expected: serde_json::Value) {
@@ -243,7 +243,7 @@ mod tests {
         let value = RuntimeValue::Array(
             vec![
                 RuntimeValue::Number(1i64.into()),
-                RuntimeValue::String("two".into()),
+                RuntimeValue::from("two"),
                 RuntimeValue::Boolean(false),
             ]
             .into(),
@@ -265,7 +265,7 @@ mod tests {
     #[case("html", "text/html; charset=utf-8")]
     #[tokio::test]
     async fn test_string_response_content_type(#[case] format: &str, #[case] expected_ct: &str) {
-        let resp = runtime_value_to_response(RuntimeValue::String("body".into()), format);
+        let resp = runtime_value_to_response(RuntimeValue::from("body"), format);
         let ct = resp
             .headers()
             .get("content-type")
@@ -284,7 +284,7 @@ mod tests {
 
         let mut map = BTreeMap::new();
         map.insert(Ident::new("status"), RuntimeValue::Number(201i64.into()));
-        map.insert(Ident::new("body"), RuntimeValue::String("created".into()));
+        map.insert(Ident::new("body"), RuntimeValue::from("created"));
 
         let resp = runtime_value_to_response(RuntimeValue::Dict(map.into()), "json");
         assert_eq!(resp.status(), StatusCode::CREATED);
@@ -297,17 +297,14 @@ mod tests {
         use std::collections::BTreeMap;
 
         let mut headers_map = BTreeMap::new();
-        headers_map.insert(
-            Ident::new("x-custom"),
-            RuntimeValue::String("value42".into()),
-        );
+        headers_map.insert(Ident::new("x-custom"), RuntimeValue::from("value42"));
         let mut map = BTreeMap::new();
         map.insert(Ident::new("status"), RuntimeValue::Number(200i64.into()));
         map.insert(
             Ident::new("headers"),
             RuntimeValue::Dict(headers_map.into()),
         );
-        map.insert(Ident::new("body"), RuntimeValue::String("ok".into()));
+        map.insert(Ident::new("body"), RuntimeValue::from("ok"));
 
         let resp = runtime_value_to_response(RuntimeValue::Dict(map.into()), "json");
         assert_eq!(
@@ -323,7 +320,7 @@ mod tests {
 
         // A dict with no "status"/"body"/"headers" keys is treated as plain JSON
         let mut map = BTreeMap::new();
-        map.insert(Ident::new("foo"), RuntimeValue::String("bar".into()));
+        map.insert(Ident::new("foo"), RuntimeValue::from("bar"));
 
         let resp = runtime_value_to_response(RuntimeValue::Dict(map.into()), "json");
         assert_eq!(resp.status(), StatusCode::OK);
@@ -365,14 +362,14 @@ mod tests {
         use std::collections::BTreeMap;
 
         let mut cookies_map = BTreeMap::new();
-        cookies_map.insert(Ident::new("session"), RuntimeValue::String("abc123".into()));
+        cookies_map.insert(Ident::new("session"), RuntimeValue::from("abc123"));
         let mut map = BTreeMap::new();
         map.insert(Ident::new("status"), RuntimeValue::Number(200i64.into()));
         map.insert(
             Ident::new("cookies"),
             RuntimeValue::Dict(cookies_map.into()),
         );
-        map.insert(Ident::new("body"), RuntimeValue::String("ok".into()));
+        map.insert(Ident::new("body"), RuntimeValue::from("ok"));
 
         let resp = runtime_value_to_response(RuntimeValue::Dict(map.into()), "json");
         let cookie = resp.headers().get("set-cookie").unwrap().to_str().unwrap();
