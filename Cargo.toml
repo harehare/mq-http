@@ -38,7 +38,7 @@ yaml-rust2 = "0.12.0"
 
 [dev-dependencies]
 http-body-util = "0.1"
-rstest = "0.26"
+rstest = "0.27"
 
 [[bin]]
 name = "mq-http"
